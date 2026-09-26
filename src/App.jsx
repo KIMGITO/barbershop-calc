@@ -3,15 +3,20 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/useAuthStore'
 import { useShopStore } from './store/useShopStore'
 import { startSyncLoop } from './lib/sync'
+import { initNativeShell, initBackButtonHandler } from './lib/nativeShell'
 import NetworkBanner from './components/NetworkBanner'
+import BottomNav from './components/BottomNav'
 
 import OwnerLogin from './screens/OwnerLogin'
 import ProviderClaim from './screens/ProviderClaim'
 import ProviderHome from './screens/ProviderHome'
+import Home from './screens/Home'
 import ProviderList from './screens/ProviderList'
+import AddProvider from './screens/AddProvider'
 import ProviderDetail from './screens/ProviderDetail'
 import AddEarning from './screens/AddEarning'
 import AddPayout from './screens/AddPayout'
+import Services from './screens/Services'
 import History from './screens/History'
 import ShopDashboard from './screens/ShopDashboard'
 
@@ -20,13 +25,15 @@ import ShopDashboard from './screens/ShopDashboard'
 const DEMO_SHOP_ID = 'REPLACE-WITH-YOUR-SHOP-ID'
 
 export default function App() {
-  const { role, ready, init, ownerSession } = useAuthStore()
+  const { role, ready, init } = useAuthStore()
   const setShopId = useShopStore((s) => s.setShopId)
 
   useEffect(() => {
     init()
-    const stop = startSyncLoop()
-    return stop
+    const stopSync = startSyncLoop()
+    initNativeShell()
+    const stopBackButton = initBackButtonHandler()
+    return () => { stopSync(); stopBackButton() }
   }, [])
 
   useEffect(() => {
@@ -49,7 +56,10 @@ export default function App() {
       <HashRouter>
         <NetworkBanner />
         <Routes>
-          <Route path="/" element={<ProviderList />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/providers" element={<ProviderList />} />
+          <Route path="/add-provider" element={<AddProvider />} />
+          <Route path="/services" element={<Services />} />
           <Route path="/dashboard" element={<ShopDashboard />} />
           <Route path="/history" element={<History />} />
           <Route path="/provider/:id" element={<ProviderDetail />} />
@@ -57,6 +67,7 @@ export default function App() {
           <Route path="/provider/:id/add-payout" element={<AddPayout />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        <BottomNav />
       </HashRouter>
     )
   }

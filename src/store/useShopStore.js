@@ -14,10 +14,57 @@ import { periodTotals } from '../utils/dates'
 export const useShopStore = create((set, get) => ({
   shopId: null,
   providers: [],
+  services: [],
   earningsByProvider: {},   // { [providerId]: [] }
   payoutsByProvider: {},    // { [providerId]: [] }
 
   setShopId: (shopId) => set({ shopId }),
+
+  // Providers are owner-managed metadata (name/phone/photo), written
+  // directly to Supabase — not offline-queued like earnings/payouts,
+  // since adding a provider requires being online to register their phone.
+  addProvider: async ({ name, phone, photoUrl, roleTitle }) => {
+    const { shopId } = get()
+    const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`
+    const { data, error } = await supabase
+      .from('service_providers')
+      .insert({
+        shop_id: shopId,
+        name,
+        phone: normalizedPhone,
+        photo_url: photoUrl || null,
+        role_title: roleTitle || 'Service Provider',
+      })
+      .select()
+      .single()
+    if (error) throw error
+    await cacheProviders([data])
+    set((s) => ({ providers: [...s.providers, data] }))
+    return data
+  },
+
+  loadServices: async (shopId) => {
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .eq('shop_id', shopId)
+      .eq('active', true)
+      .order('name')
+    if (!error && data) set({ services: data })
+    return data || []
+  },
+
+  addService: async ({ name, defaultPrice }) => {
+    const { shopId } = get()
+    const { data, error } = await supabase
+      .from('services')
+      .insert({ shop_id: shopId, name, default_price: defaultPrice || null })
+      .select()
+      .single()
+    if (error) throw error
+    set((s) => ({ services: [...s.services, data].sort((a, b) => a.name.localeCompare(b.name)) }))
+    return data
+  },
 
   // Pull the provider list from Supabase (when online) and cache locally;
   // always read back from cache so the UI works offline too.

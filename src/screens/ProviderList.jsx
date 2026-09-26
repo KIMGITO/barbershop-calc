@@ -23,10 +23,10 @@ export default function ProviderList() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ fontSize: 20, fontWeight: 700 }}>Service Providers</div>
         <button
-          onClick={() => navigate('/dashboard')}
-          style={{ background: '#F1EBFF', color: '#7C5CFC', border: 'none', borderRadius: 10, padding: '8px 12px', fontWeight: 600, fontSize: 12 }}
+          onClick={() => navigate('/add-provider')}
+          style={{ background: '#7C5CFC', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontWeight: 600, fontSize: 12 }}
         >
-          Shop Totals
+          + Add Provider
         </button>
       </div>
 

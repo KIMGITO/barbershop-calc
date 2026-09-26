@@ -21,7 +21,15 @@ export default function OwnerLogin() {
       : supabase.auth.signUp({ phone: normalizedPhone, password })
     const { error } = await fn
     setLoading(false)
-    if (error) { setError(error.message); return }
+    if (error) {
+      // Surface the real Supabase error code alongside the message — the
+      // network tab only shows a generic 400/422 status, but the JSON
+      // body (error.message here) names the actual cause, e.g. "Signups
+      // not allowed for this instance", "Unsupported phone provider", or
+      // a password-policy complaint.
+      setError(`${error.message}${error.status ? ` (HTTP ${error.status})` : ''}`)
+      return
+    }
     await init()
   }
 
