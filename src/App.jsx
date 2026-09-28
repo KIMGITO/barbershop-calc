@@ -5,11 +5,12 @@ import { useShopStore } from './store/useShopStore'
 import { startSyncLoop } from './lib/sync'
 import { initNativeShell, initBackButtonHandler } from './lib/nativeShell'
 import NetworkBanner from './components/NetworkBanner'
-import BottomNav from './components/BottomNav'
+import BottomNav, { OWNER_TABS, PROVIDER_TABS } from './components/BottomNav'
 
 import AdminOnboarding from './screens/AdminOnboarding'
 import ProviderClaim from './screens/ProviderClaim'
 import ProviderHome from './screens/ProviderHome'
+import ProviderHistory from './screens/ProviderHistory'
 import Home from './screens/Home'
 import ProviderList from './screens/ProviderList'
 import AddProvider from './screens/AddProvider'
@@ -40,10 +41,15 @@ export default function App() {
 
   if (role === 'provider') {
     return (
-      <>
+      <HashRouter>
         <NetworkBanner />
-        <ProviderHome />
-      </>
+        <Routes>
+          <Route path="/" element={<ProviderHome />} />
+          <Route path="/history" element={<ProviderHistory />} />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+        <BottomNav tabs={PROVIDER_TABS} />
+      </HashRouter>
     )
   }
 
@@ -63,7 +69,7 @@ export default function App() {
           <Route path="/provider/:id/add-payout" element={<AddPayout />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-        <BottomNav />
+        <BottomNav tabs={OWNER_TABS} />
       </HashRouter>
     )
   }

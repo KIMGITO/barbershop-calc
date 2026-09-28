@@ -51,13 +51,14 @@ export async function getCachedProviders(shopId) {
 }
 
 // --- Earnings ---
-export async function addEarningLocal({ shop_id, provider_id, service_id, amount, note }) {
+export async function addEarningLocal({ shop_id, provider_id, service_id, services, amount, note }) {
   const db = await getDB()
   const row = {
     local_id: makeLocalId(),
     shop_id,
     provider_id,
     service_id: service_id ?? null,
+    services: services ?? [],
     amount,
     note: note ?? null,
     created_at: new Date().toISOString(),

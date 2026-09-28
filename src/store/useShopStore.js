@@ -94,9 +94,9 @@ export const useShopStore = create((set, get) => ({
     return { earnings, payouts }
   },
 
-  addEarning: async ({ providerId, serviceId, amount, note }) => {
+  addEarning: async ({ providerId, serviceId, services, amount, note }) => {
     const { shopId } = get()
-    await addEarningLocal({ shop_id: shopId, provider_id: providerId, service_id: serviceId, amount, note })
+    await addEarningLocal({ shop_id: shopId, provider_id: providerId, service_id: serviceId, services, amount, note })
     await get().loadProviderLogs(providerId)
     runSync() // fire and forget; safe if offline
   },

@@ -2,6 +2,8 @@ import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useShopStore } from '../store/useShopStore'
 import StatPill from '../components/StatPill'
+import ActivityFeed from '../components/ActivityFeed'
+import { mergeActivities } from '../utils/activity'
 
 export default function ProviderDetail() {
   const { id } = useParams()
@@ -23,10 +25,7 @@ export default function ProviderDetail() {
   const { earned, paid, owed } = providerSummary(id)
 
   // Merge earnings + payouts into one activity feed, newest first.
-  const feed = [
-    ...earnings.map((e) => ({ ...e, kind: 'earning' })),
-    ...payouts.map((p) => ({ ...p, kind: 'payout' })),
-  ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  const feed = mergeActivities(earnings, payouts, () => provider.name)
 
   return (
     <div style={{ background: '#F4F2FA', minHeight: '100vh', paddingBottom: 90 }}>
@@ -109,32 +108,7 @@ export default function ProviderDetail() {
           Activity ({feed.length})
         </div>
 
-        {feed.length === 0 && (
-          <div style={{ color: '#8A8A9A', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
-            No entries yet.
-          </div>
-        )}
-
-        {feed.map((item) => (
-          <div key={item.local_id} style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            background: '#fff', border: '1px solid #F0EEF7', borderRadius: 14,
-            padding: '12px 14px', marginBottom: 8,
-          }}>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>
-                {item.kind === 'earning' ? (item.note || 'Service earning') : `Payout · ${item.method}${item.mpesa_code ? ' · ' + item.mpesa_code : ''}`}
-              </div>
-              <div style={{ fontSize: 12, color: '#8A8A9A' }}>
-                {new Date(item.created_at).toLocaleString()}
-                {item.pending ? ' · syncing…' : ''}
-              </div>
-            </div>
-            <div style={{ fontWeight: 700, color: item.kind === 'earning' ? '#2FA866' : '#D9822B' }}>
-              {item.kind === 'earning' ? '+' : '-'}KES {Number(item.amount).toLocaleString()}
-            </div>
-          </div>
-        ))}
+        <ActivityFeed items={feed} showProvider={false} emptyText="No entries yet." />
       </div>
     </div>
   )
