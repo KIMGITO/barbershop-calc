@@ -4,6 +4,7 @@ import {
   cacheProviders,
   getCachedProviders,
   addEarningLocal,
+  cacheEarning,
   getEarningsForProvider,
   addPayoutLocal,
   getPayoutsForProvider,
@@ -15,10 +16,62 @@ export const useShopStore = create((set, get) => ({
   shopId: null,
   providers: [],
   services: [],
+  requests: [],             // provider-submitted records (pending/approved/rejected)
   earningsByProvider: {},   // { [providerId]: [] }
   payoutsByProvider: {},    // { [providerId]: [] }
 
   setShopId: (shopId) => set({ shopId }),
+
+  // --- Provider self-recording ---
+  setCanSelfRecord: async (providerId, value) => {
+    const { error } = await supabase
+      .from('service_providers')
+      .update({ can_self_record: value })
+      .eq('id', providerId)
+    if (error) throw error
+    set((s) => ({
+      providers: s.providers.map((p) => (p.id === providerId ? { ...p, can_self_record: value } : p)),
+    }))
+    const updated = get().providers.find((p) => p.id === providerId)
+    if (updated) await cacheProviders([updated])
+  },
+
+  loadRequests: async () => {
+    const { shopId } = get()
+    if (!shopId || !navigator.onLine) return
+    const { data, error } = await supabase
+      .from('earning_requests')
+      .select('*')
+      .eq('shop_id', shopId)
+      .order('created_at', { ascending: false })
+      .limit(100)
+    if (!error && data) set({ requests: data })
+  },
+
+  // Approve (optionally with edits). The server creates the earning; we
+  // save it locally too, since this device reads earnings from local storage.
+  approveRequest: async ({ id, serviceIds, amount, note }) => {
+    const { data, error } = await supabase.rpc('approve_earning_request', {
+      p_request_id: id,
+      p_service_ids: serviceIds ?? null,
+      p_amount: amount ?? null,
+      p_note: note ?? null,
+    })
+    if (error) throw error
+    await cacheEarning(data)
+    await get().loadProviderLogs(data.provider_id)
+    await get().loadRequests()
+    return data
+  },
+
+  rejectRequest: async ({ id, reason }) => {
+    const { error } = await supabase.rpc('reject_earning_request', {
+      p_request_id: id,
+      p_reason: reason || null,
+    })
+    if (error) throw error
+    await get().loadRequests()
+  },
 
   // Providers are owner-managed metadata (name/phone/photo), written
   // directly to Supabase — not offline-queued like earnings/payouts,

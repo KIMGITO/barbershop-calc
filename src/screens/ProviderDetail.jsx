@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useShopStore } from '../store/useShopStore'
 import StatPill from '../components/StatPill'
 import ActivityFeed from '../components/ActivityFeed'
+import SelfRecordToggle from '../components/SelfRecordToggle'
+import { useAuthStore } from '../store/useAuthStore'
 import { mergeActivities } from '../utils/activity'
 
 export default function ProviderDetail() {
@@ -15,6 +17,7 @@ export default function ProviderDetail() {
   const payouts = useShopStore((s) => s.payoutsByProvider[id] || [])
 
   const provider = providers.find((p) => p.id === id)
+  const ownerPhone = useAuthStore((s) => s.shop?.owner_phone)
 
   useEffect(() => {
     loadProviderLogs(id)
@@ -60,6 +63,8 @@ export default function ProviderDetail() {
           <div style={{ fontWeight: 700, fontSize: 18 }}>{provider.name}</div>
           <div style={{ fontSize: 13, color: '#8A8A9A' }}>{provider.role_title} · {provider.phone}</div>
         </div>
+
+        {provider.phone !== ownerPhone && <SelfRecordToggle provider={provider} />}
 
         {/* Action buttons, replacing Call / Message */}
         <div style={{ display: 'flex', gap: 10, margin: '16px 0' }}>

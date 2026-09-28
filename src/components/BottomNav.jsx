@@ -5,18 +5,23 @@ export const OWNER_TABS = [
   { to: '/', label: 'Home', icon: '⌂', end: true },
   { to: '/providers', label: 'Team', icon: '👤' },
   { to: '/services', label: 'Services', icon: '✂' },
-  { to: '/dashboard', label: 'Totals', icon: '📊' },
+  { to: '/requests', label: 'Approvals', icon: '✔' },
   { to: '/history', label: 'History', icon: '🕓' },
 ]
 
-export const PROVIDER_TABS = [
-  { to: '/', label: 'Today', icon: '⌂', end: true },
-  { to: '/history', label: 'History', icon: '🕓' },
-]
+// Providers only see the Record tab when the admin has allowed it.
+export function providerTabs(canRecord) {
+  return [
+    { to: '/', label: 'Today', icon: '⌂', end: true },
+    ...(canRecord ? [{ to: '/record', label: 'Record', icon: '＋' }] : []),
+    { to: '/history', label: 'History', icon: '🕓' },
+  ]
+}
 
 // Floating bottom nav. Slides away when scrolling down, returns when
 // scrolling up (or on reaching the top/bottom, or navigating).
-export default function BottomNav({ tabs = OWNER_TABS }) {
+// `badges`: { [path]: count } shows a small count bubble on that tab.
+export default function BottomNav({ tabs = OWNER_TABS, badges = {} }) {
   const { pathname } = useLocation()
   const hidden = useHideOnScroll(pathname)
 
@@ -50,9 +55,16 @@ export default function BottomNav({ tabs = OWNER_TABS }) {
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
             textDecoration: 'none', color: isActive ? '#fff' : '#8A8AA0',
             padding: '4px 10px', borderRadius: 12,
-            background: isActive ? '#7C5CFC' : 'transparent', minWidth: 52,
+            background: isActive ? '#7C5CFC' : 'transparent', minWidth: 52, position: 'relative',
           })}
         >
+          {badges[tab.to] > 0 && (
+            <span style={{
+              position: 'absolute', top: -2, right: 4, minWidth: 16, height: 16, borderRadius: 8,
+              background: '#F04E4E', color: '#fff', fontSize: 10, fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px',
+            }}>{badges[tab.to] > 9 ? '9+' : badges[tab.to]}</span>
+          )}
           <span style={{ fontSize: 16, lineHeight: 1 }}>{tab.icon}</span>
           <span style={{ fontSize: 10, fontWeight: 600 }}>{tab.label}</span>
         </NavLink>

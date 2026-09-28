@@ -69,6 +69,13 @@ export async function addEarningLocal({ shop_id, provider_id, service_id, servic
   return row
 }
 
+// Saves an earning that was created on the server (e.g. an approved
+// provider request) into the local store, already synced.
+export async function cacheEarning(row) {
+  const db = await getDB()
+  await db.put('earnings', { ...row, pending: false })
+}
+
 export async function getEarningsForProvider(providerId) {
   const db = await getDB()
   const rows = await db.getAllFromIndex('earnings', 'provider_id', providerId)

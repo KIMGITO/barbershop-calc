@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useProviderStore } from '../store/useProviderStore'
 import { periodTotals } from '../utils/dates'
 import { mergeActivities, isToday, money } from '../utils/activity'
@@ -7,14 +7,8 @@ import ActivityFeed from '../components/ActivityFeed'
 
 // A provider's own "Today" screen — read-only. Only the admin's device writes.
 export default function ProviderHome() {
-  const { provider, earnings, payouts, loading, error, load } = useProviderStore()
-
-  useEffect(() => {
-    load()
-    const onVisible = () => { if (document.visibilityState === 'visible') load() }
-    document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [])
+  const navigate = useNavigate()
+  const { provider, earnings, payouts, requests, loading, error } = useProviderStore()
 
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>
   if (!provider) return <div style={{ padding: 24, color: '#D9482B' }}>{error}</div>
@@ -22,6 +16,7 @@ export default function ProviderHome() {
   const earned = periodTotals(earnings)
   const paid = periodTotals(payouts)
   const owed = earned.all - paid.all
+  const waiting = requests.filter((r) => r.status === 'pending').length
   const today = mergeActivities(earnings, payouts, () => provider.name).filter(isToday)
 
   return (
@@ -47,6 +42,16 @@ export default function ProviderHome() {
           Earned {money(earned.all)} · Paid to you {money(paid.all)}
         </div>
       </div>
+
+      {provider.can_self_record && (
+        <button
+          onClick={() => navigate('/record')}
+          style={{ width: '100%', background: '#F1EBFF', color: '#6B4BE0', border: 'none', borderRadius: 14, padding: 14, fontWeight: 700, fontSize: 14, marginBottom: 14, textAlign: 'left' }}
+        >
+          + Record a service
+          {waiting > 0 && <span style={{ float: 'right', color: '#D9822B', fontSize: 12 }}>{waiting} waiting for approval</span>}
+        </button>
+      )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         <StatPill label="Today" value={earned.today} />

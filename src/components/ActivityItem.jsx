@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { activityTitle, methodLabel, money } from '../utils/activity'
+import { activityTitle, methodLabel, money, wasEdited } from '../utils/activity'
 
 const row = { display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 12, padding: '4px 0' }
 
@@ -11,6 +11,8 @@ export default function ActivityItem({ a, showProvider = true }) {
   const isEarning = a.kind === 'earning'
   const accent = isEarning ? '#2FA866' : '#D9822B'
   const time = new Date(a.createdAt)
+  const fromProvider = a.source === 'provider_request'
+  const edited = wasEdited(a)
   const servicesTotal = a.services.reduce((s, x) => s + Number(x.price || 0), 0)
 
   return (
@@ -34,6 +36,7 @@ export default function ActivityItem({ a, showProvider = true }) {
             {showProvider && a.providerName ? `${a.providerName} · ` : ''}
             {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             {a.pending ? ' · syncing…' : ''}
+            {fromProvider ? ' · self-recorded' : ''}
           </div>
         </div>
         <div style={{ fontWeight: 700, color: accent, whiteSpace: 'nowrap' }}>
@@ -67,6 +70,21 @@ export default function ActivityItem({ a, showProvider = true }) {
           {!isEarning && <div style={row}><span style={{ color: '#8A8A9A' }}>Method</span><span>{methodLabel(a.method)}</span></div>}
           {a.mpesaCode && <div style={row}><span style={{ color: '#8A8A9A' }}>M-Pesa code</span><span>{a.mpesaCode}</span></div>}
           {a.note && <div style={row}><span style={{ color: '#8A8A9A' }}>Note</span><span style={{ textAlign: 'right' }}>{a.note}</span></div>}
+          {fromProvider && (
+            <>
+              <div style={row}><span style={{ color: '#8A8A9A' }}>Recorded by</span><span>Provider · approved by admin</span></div>
+              {a.submission && (
+                <div style={row}>
+                  <span style={{ color: '#8A8A9A' }}>Submitted</span>
+                  <span style={{ textAlign: 'right' }}>
+                    {money(a.submission.amount)}
+                    {(a.submission.services || []).length ? ` · ${a.submission.services.map((x) => x.name).join(', ')}` : ''}
+                  </span>
+                </div>
+              )}
+              {edited && <div style={row}><span style={{ color: '#8A8A9A' }}>Admin edits</span><span style={{ color: '#D9822B' }}>Changed before approval</span></div>}
+            </>
+          )}
           <div style={row}><span style={{ color: '#8A8A9A' }}>Status</span><span>{a.pending ? 'Waiting to sync' : 'Synced'}</span></div>
           <div style={row}><span style={{ color: '#8A8A9A' }}>Reference</span><span style={{ fontFamily: 'monospace', fontSize: 11 }}>{a.refId}</span></div>
         </div>

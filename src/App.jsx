@@ -5,12 +5,15 @@ import { useShopStore } from './store/useShopStore'
 import { startSyncLoop } from './lib/sync'
 import { initNativeShell, initBackButtonHandler } from './lib/nativeShell'
 import NetworkBanner from './components/NetworkBanner'
-import BottomNav, { OWNER_TABS, PROVIDER_TABS } from './components/BottomNav'
+import BottomNav, { OWNER_TABS, providerTabs } from './components/BottomNav'
+import { useProviderStore } from './store/useProviderStore'
 
 import AdminOnboarding from './screens/AdminOnboarding'
 import ProviderClaim from './screens/ProviderClaim'
 import ProviderHome from './screens/ProviderHome'
 import ProviderHistory from './screens/ProviderHistory'
+import RecordService from './screens/RecordService'
+import Requests from './screens/Requests'
 import Home from './screens/Home'
 import ProviderList from './screens/ProviderList'
 import AddProvider from './screens/AddProvider'
@@ -41,15 +44,7 @@ export default function App() {
 
   if (role === 'provider') {
     return (
-      <HashRouter>
-        <NetworkBanner />
-        <Routes>
-          <Route path="/" element={<ProviderHome />} />
-          <Route path="/history" element={<ProviderHistory />} />
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-        <BottomNav tabs={PROVIDER_TABS} />
-      </HashRouter>
+      <ProviderShell />
     )
   }
 
@@ -57,8 +52,10 @@ export default function App() {
     return (
       <HashRouter>
         <NetworkBanner />
+        <RequestsPoller />
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/requests" element={<Requests />} />
           <Route path="/providers" element={<ProviderList />} />
           <Route path="/add-provider" element={<AddProvider />} />
           <Route path="/services" element={<Services />} />
@@ -69,7 +66,7 @@ export default function App() {
           <Route path="/provider/:id/add-payout" element={<AddPayout />} />
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
-        <BottomNav tabs={OWNER_TABS} />
+        <OwnerNav />
       </HashRouter>
     )
   }
@@ -108,5 +105,56 @@ function RoleChoice() {
         I'm a Service Provider
       </button>
     </div>
+  )
+}
+
+// Keeps the admin's approvals inbox fresh: on start, every 30s, and
+// whenever the app comes back to the foreground.
+function RequestsPoller() {
+  const shopId = useShopStore((s) => s.shopId)
+  const loadRequests = useShopStore((s) => s.loadRequests)
+
+  useEffect(() => {
+    if (!shopId) return
+    loadRequests()
+    const timer = setInterval(loadRequests, 30000)
+    const onVisible = () => { if (document.visibilityState === 'visible') loadRequests() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
+  }, [shopId])
+
+  return null
+}
+
+function OwnerNav() {
+  const pending = useShopStore((s) => s.requests.filter((r) => r.status === 'pending').length)
+  return <BottomNav tabs={OWNER_TABS} badges={{ '/requests': pending }} />
+}
+
+// Provider side: loads their data once here (so every tab has it), keeps
+// it fresh, and only shows the Record tab if the admin allowed it.
+function ProviderShell() {
+  const load = useProviderStore((s) => s.load)
+  const canRecord = useProviderStore((s) => !!s.provider?.can_self_record)
+
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 60000)
+    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
+  }, [])
+
+  return (
+    <HashRouter>
+      <NetworkBanner />
+      <Routes>
+        <Route path="/" element={<ProviderHome />} />
+        <Route path="/record" element={<RecordService />} />
+        <Route path="/history" element={<ProviderHistory />} />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+      <BottomNav tabs={providerTabs(canRecord)} />
+    </HashRouter>
   )
 }

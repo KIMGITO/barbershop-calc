@@ -17,6 +17,7 @@ export default function Home() {
   const shopSummary = useShopStore((s) => s.shopSummary)
   const signOutOwner = useAuthStore((s) => s.signOutOwner)
   const shop = useAuthStore((s) => s.shop)
+  const pending = useShopStore((s) => s.requests.filter((r) => r.status === 'pending').length)
 
   useEffect(() => {
     if (!shopId) return
@@ -40,6 +41,7 @@ export default function Home() {
     ...(me ? [{ label: 'My earnings', path: `/provider/${me.id}`, bg: '#FDECF3', color: '#D93C7A' }] : []),
     { label: '+ Add provider', path: '/add-provider', bg: '#EAF7EF', color: '#2FA866' },
     { label: 'Services', path: '/services', bg: '#FFF3E6', color: '#D9822B' },
+    { label: 'Totals', path: '/dashboard', bg: '#EAF1FF', color: '#2E6BE0' },
   ]
 
   return (
@@ -53,6 +55,15 @@ export default function Home() {
       <div style={{ color: '#8A8A9A', marginBottom: 16, fontSize: 13 }}>
         {new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}
       </div>
+
+      {pending > 0 && (
+        <button
+          onClick={() => navigate('/requests')}
+          style={{ width: '100%', textAlign: 'left', background: '#FFF3E6', color: '#B96A12', border: 'none', borderRadius: 14, padding: 14, fontWeight: 700, fontSize: 13, marginBottom: 14 }}
+        >
+          {pending} service {pending === 1 ? 'record is' : 'records are'} waiting for your approval →
+        </button>
+      )}
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
         <StatPill label="Earned today" value={day.earned} />

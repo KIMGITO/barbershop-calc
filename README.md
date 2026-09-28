@@ -113,3 +113,10 @@ One admin per installation, identified by phone number — WhatsApp-style.
 **Setup checklist:** run `supabase/migrations/0004_admin_phone_identity.sql` in the SQL editor, and turn on *Authentication → Providers → Allow anonymous sign-ins*. The Phone provider is no longer needed.
 
 **Security note:** without an SMS code, anyone who knows the admin's number can resume as admin from another device. Add Supabase phone OTP later if that becomes a concern.
+
+## Provider self-recording (with admin approval)
+
+- Admin turns it on per provider (switch on the provider's page). Off by default.
+- Providers get a **Record** tab: pick services, amount, note → sent as a *request*. Providers can't write earnings directly.
+- Admin sees them under **Approvals** (badge on the tab and a banner on Home): approve, edit-then-approve, or reject with a reason. Approval creates the real earning, dated when it was recorded, and keeps the original submission for audit.
+- Requires `supabase/migrations/0007_provider_self_recording.sql`.

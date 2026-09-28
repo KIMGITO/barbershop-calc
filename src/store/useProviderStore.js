@@ -2,11 +2,15 @@ import { create } from 'zustand'
 import { supabase } from '../lib/supabaseClient'
 import { getDeviceToken } from '../lib/db'
 
-// Read-only data for a claimed provider's own device.
+// Data for a claimed provider's own device. Earnings/payouts are read-only;
+// the only thing a provider can write is a *request*, which the admin must
+// approve before it becomes a real earning.
 export const useProviderStore = create((set, get) => ({
   provider: null,
   earnings: [],
   payouts: [],
+  requests: [],
+  services: [],
   loading: true,
   error: '',
 
@@ -23,8 +27,29 @@ export const useProviderStore = create((set, get) => ({
       provider: data[0].provider,
       earnings: data[0].earnings_json || [],
       payouts: data[0].payouts_json || [],
+      requests: data[0].requests_json || [],
+      services: data[0].services_json || [],
       loading: false,
       error: '',
     })
+  },
+
+  submitRequest: async ({ serviceIds, amount, note }) => {
+    const token = await getDeviceToken()
+    const { error } = await supabase.rpc('submit_earning_request', {
+      p_token: token,
+      p_service_ids: serviceIds,
+      p_amount: amount,
+      p_note: note || null,
+    })
+    if (error) throw error
+    await get().load()
+  },
+
+  cancelRequest: async (id) => {
+    const token = await getDeviceToken()
+    const { error } = await supabase.rpc('cancel_earning_request', { p_token: token, p_request_id: id })
+    if (error) throw error
+    await get().load()
   },
 }))

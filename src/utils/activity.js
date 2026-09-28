@@ -23,6 +23,8 @@ export function toActivity(row, kind, providerName = '') {
     mpesaCode: row.mpesa_code || '',
     createdAt: row.created_at,
     pending: !!row.pending,
+    source: row.source || 'admin',
+    submission: row.submission || null,
   }
 }
 
@@ -62,6 +64,7 @@ export function matchesQuery(a, query) {
   const hay = [
     a.providerName,
     a.kind === 'earning' ? 'earning service services' : 'payout paid',
+    a.source === 'provider_request' ? 'self-recorded provider request approved' : '',
     activityTitle(a),
     ...a.services.flatMap((s) => [s.name, String(s.price ?? '')]),
     a.note, a.method, methodLabel(a.method), a.mpesaCode,
@@ -91,4 +94,12 @@ export function totals(items) {
     else paid += a.amount
   }
   return { earned, paid }
+}
+
+// Did the admin change what the provider originally submitted?
+export function wasEdited(a) {
+  const sub = a.submission
+  if (!sub) return false
+  const ids = (list) => JSON.stringify((list || []).map((s) => s.id).sort())
+  return Number(sub.amount) !== a.amount || ids(sub.services) !== ids(a.services) || (sub.note || '') !== (a.note || '')
 }
