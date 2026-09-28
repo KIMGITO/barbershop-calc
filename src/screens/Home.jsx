@@ -12,6 +12,10 @@ export default function Home() {
   const loadProviderLogs = useShopStore((s) => s.loadProviderLogs)
   const shopSummary = useShopStore((s) => s.shopSummary)
   const signOutOwner = useAuthStore((s) => s.signOutOwner)
+  const shop = useAuthStore((s) => s.shop)
+
+  // The admin is also a provider: their own record shares their phone number.
+  const me = providers.find((p) => p.phone === shop?.owner_phone)
 
   useEffect(() => {
     if (!shopId) return
@@ -21,6 +25,7 @@ export default function Home() {
   const { earned, paid, owed } = shopSummary()
 
   const tiles = [
+    ...(me ? [{ label: 'My Earnings', sub: 'Your own cuts & payouts', path: `/provider/${me.id}`, bg: '#FDECF3', color: '#D93C7A' }] : []),
     { label: 'Providers', sub: `${providers.length} on the team`, path: '/providers', bg: '#F1EBFF', color: '#7C5CFC' },
     { label: 'Add Provider', sub: 'Onboard someone new', path: '/add-provider', bg: '#EAF7EF', color: '#2FA866' },
     { label: 'Services', sub: 'Manage your price list', path: '/services', bg: '#FFF3E6', color: '#D9822B' },
