@@ -1,6 +1,9 @@
 dist/
 android/
 ios/
+
+# Icon and splash sources derived from public/image.png by scripts/assets.mjs
+assets/
 .DS_Store
 node_modules/
 

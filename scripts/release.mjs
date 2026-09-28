@@ -6,17 +6,18 @@
  *
  *   1. preflight ......... verify JDK, Android SDK and required SDK packages
  *   2. native project .... `npx cap add android` if android/ is absent
- *   3. toolchain ......... pin Gradle / AGP / compileSdk+targetSdk / JVM args
- *   4. signing config .... wire signingConfig into android/app/build.gradle
- *   5. keystore .......... generate signing/release.keystore once, reuse after
- *   6. web build ......... `npm run build` (production Vite build, reads .env)
- *   7. capacitor sync .... copy web assets + native plugin wiring into android/
- *   8. gradle ............ clean + assembleRelease (+ bundleRelease), signed
- *   9. collect ........... verify signature, copy to release/, write SHA256SUMS
+ *   3. branding .......... launcher icon + splash generated from public/image.png
+ *   4. toolchain ......... pin Gradle / AGP / compileSdk+targetSdk / JVM args
+ *   5. signing config .... wire signingConfig into android/app/build.gradle
+ *   6. keystore .......... generate signing/release.keystore once, reuse after
+ *   7. web build ......... `npm run build` (production Vite build, reads .env)
+ *   8. capacitor sync .... copy web assets + native plugin wiring into android/
+ *   9. gradle ............ clean + assembleRelease (+ bundleRelease), signed
+ *  10. collect ........... verify signature, copy to release/, write SHA256SUMS
  *
  * Environment overrides (all optional):
  *   RELEASE_TARGETS=apk,bundle   which artifacts to build (default: both)
- *   RELEASE_DRY_RUN=1            run steps 1-5 only, skip build/sync/gradle
+ *   RELEASE_DRY_RUN=1            run steps 1-6 only, skip build/sync/gradle
  *   RELEASE_KEYSTORE_FILE        use an existing keystore instead of signing/
  *   RELEASE_KEYSTORE_PASSWORD    ... instead of generating one
  *   RELEASE_KEY_ALIAS            default: release
@@ -80,7 +81,7 @@ const c = {
   r: (s) => `\x1b[31m${s}\x1b[0m`,
 }
 let stepNumber = 0
-const step = (title) => console.log(`\n${c.b(`[${++stepNumber}/9]`)} ${c.g(title)}`)
+const step = (title) => console.log(`\n${c.b(`[${++stepNumber}/10]`)} ${c.g(title)}`)
 const info = (msg) => console.log(`      ${msg}`)
 const warn = (msg) => console.log(`      ${c.y('!')} ${msg}`)
 function fail(msg) {
@@ -245,6 +246,13 @@ function ensureNativeProject() {
 }
 
 /** Idempotently pin a value in a text file; no-op when already correct. */
+function applyBranding() {
+  step('Branding: app icon and splash from public/image.png')
+  // android/ is git-ignored, so the artwork has to be re-derived every run —
+  // otherwise a `npx cap add android` would bring back the stock Capacitor logo.
+  run(process.execPath, [path.join(ROOT, 'scripts', 'assets.mjs')])
+}
+
 function patchFile(file, pattern, replacement, label) {
   const before = fs.readFileSync(file, 'utf8')
   const match = before.match(pattern)
@@ -555,10 +563,11 @@ try {
   const started = Date.now()
   console.log(c.b(`\n${capConfig.appName} — production Android release`))
   info(`versionName ${pkg.version} · targets ${TARGETS.join(', ')} · package.json ${pkg.name}`)
-  if (DRY_RUN) warn('dry run: steps 6-9 (web build, sync, gradle, collect) are skipped')
+  if (DRY_RUN) warn('dry run: steps 7-10 (web build, sync, gradle, collect) are skipped')
 
   preflight()
   ensureNativeProject()
+  applyBranding()
   ensureToolchain()
   ensureSigningConfig()
   ensureKeystore()
