@@ -7,7 +7,7 @@ import { initNativeShell, initBackButtonHandler } from './lib/nativeShell'
 import NetworkBanner from './components/NetworkBanner'
 import BottomNav from './components/BottomNav'
 
-import OwnerLogin from './screens/OwnerLogin'
+import AdminOnboarding from './screens/AdminOnboarding'
 import ProviderClaim from './screens/ProviderClaim'
 import ProviderHome from './screens/ProviderHome'
 import Home from './screens/Home'
@@ -20,12 +20,8 @@ import Services from './screens/Services'
 import History from './screens/History'
 import ShopDashboard from './screens/ShopDashboard'
 
-// TODO: replace with your real shop id once you've created the shop row,
-// or fetch it after owner sign-in (select id from shops where owner_user_id = auth.uid()).
-const DEMO_SHOP_ID = 'REPLACE-WITH-YOUR-SHOP-ID'
-
 export default function App() {
-  const { role, ready, init } = useAuthStore()
+  const { role, shop, ready, init } = useAuthStore()
   const setShopId = useShopStore((s) => s.setShopId)
 
   useEffect(() => {
@@ -37,8 +33,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (role === 'owner') setShopId(DEMO_SHOP_ID)
-  }, [role])
+    if (role === 'owner' && shop) setShopId(shop.id)
+  }, [role, shop])
 
   if (!ready) return null
 
@@ -77,14 +73,30 @@ export default function App() {
 }
 
 function RoleChoice() {
+  const adminExists = useAuthStore((s) => s.adminExists)
+  const [exists, setExists] = useState(null) // null = checking
   const [choice, setChoice] = useState(null)
-  if (choice === 'owner') return <OwnerLogin />
-  if (choice === 'provider') return <ProviderClaim shopId={DEMO_SHOP_ID} />
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    adminExists().then(setExists).catch((e) => setError(e.message || 'Could not reach the server.'))
+  }, [])
+
+  if (error) {
+    return <div style={{ padding: 24, color: '#D9482B' }}>{error}</div>
+  }
+  if (exists === null) return null
+
+  // Fresh install: the first person in becomes the one admin.
+  if (!exists) return <AdminOnboarding mode="setup" />
+
+  if (choice === 'owner') return <AdminOnboarding mode="resume" onBack={() => setChoice(null)} />
+  if (choice === 'provider') return <ProviderClaim />
   return (
     <div style={{ padding: 24, minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 }}>
       <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Barbershop</div>
       <button onClick={() => setChoice('owner')} style={{ padding: 16, borderRadius: 14, border: 'none', background: '#7C5CFC', color: '#fff', fontWeight: 700 }}>
-        I'm the Owner
+        I'm the Admin
       </button>
       <button onClick={() => setChoice('provider')} style={{ padding: 16, borderRadius: 14, border: '1px solid #7C5CFC', background: '#fff', color: '#7C5CFC', fontWeight: 700 }}>
         I'm a Service Provider

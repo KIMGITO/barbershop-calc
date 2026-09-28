@@ -100,3 +100,16 @@ changes waiting to sync" banner, a brief "Syncing…" state, or a "Sync
 issue — will retry automatically" notice if Supabase rejects something
 (check the trigger conditions in `0003_triggers.sql` first — e.g. an
 inactive provider — since those are the deliberate rejection cases).
+
+## Admin identity (no passwords)
+
+One admin per installation, identified by phone number — WhatsApp-style.
+
+- First launch on a fresh install → "Set up your shop" (name, shop name, phone). Runs `setup_admin`, which refuses if a shop already exists.
+- Every device gets a Supabase **anonymous** session, persisted on the device, so the admin stays signed in.
+- New/cleared device → "Welcome back": enter the registered number (`recover_admin`) to continue.
+- Providers claim their account with the number the admin registered (`claim_provider`), bound to their device.
+
+**Setup checklist:** run `supabase/migrations/0004_admin_phone_identity.sql` in the SQL editor, and turn on *Authentication → Providers → Allow anonymous sign-ins*. The Phone provider is no longer needed.
+
+**Security note:** without an SMS code, anyone who knows the admin's number can resume as admin from another device. Add Supabase phone OTP later if that becomes a concern.

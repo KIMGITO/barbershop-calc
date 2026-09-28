@@ -5,7 +5,7 @@ import { useAuthStore } from '../store/useAuthStore'
 // the owner registered them with; if it matches an unclaimed record, this
 // device is permanently bound to that provider (see claimProviderAccount).
 // There is no OTP — this only works once per provider record.
-export default function ProviderClaim({ shopId }) {
+export default function ProviderClaim() {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -15,7 +15,7 @@ export default function ProviderClaim({ shopId }) {
     setError('')
     setLoading(true)
     try {
-      await claimProviderAccount({ phone, shopId })
+      await claimProviderAccount({ phone })
     } catch (e) {
       setError(e.message || 'Could not verify this phone number with the owner.')
     } finally {
