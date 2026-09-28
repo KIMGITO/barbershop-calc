@@ -6,6 +6,9 @@ import ActivityFeed from '../components/ActivityFeed'
 import SelfRecordToggle from '../components/SelfRecordToggle'
 import { useAuthStore } from '../store/useAuthStore'
 import { mergeActivities } from '../utils/activity'
+import { ArrowLeft, TrendingUp, TrendingDown } from 'lucide-react'
+import { brand, ink, line, shadow, surface, type, radius, status } from '../theme'
+import { Button, IconButton } from '../components/ui'
 
 export default function ProviderDetail() {
   const { id } = useParams()
@@ -31,55 +34,66 @@ export default function ProviderDetail() {
   const feed = mergeActivities(earnings, payouts, () => provider.name)
 
   return (
-    <div style={{ background: '#F4F2FA', minHeight: '100vh', paddingBottom: 90 }}>
+    <div style={{ background: surface.page, minHeight: '100vh', paddingBottom: 90 }}>
       {/* Header photo section */}
       <div style={{ position: 'relative' }}>
-        <div style={{
-          height: 220,
-          background: 'linear-gradient(180deg, #DCEBEF 0%, #ECE4F4 100%)',
-          display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-        }}>
+        <div
+          style={{
+            height: 210,
+            // Palette gradient: black melting into the card surface.
+            background: 'var(--gradient-dark)',
+            display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+          }}
+        >
           <img
             src={provider.photo_url || 'https://api.dicebear.com/7.x/initials/svg?seed=' + provider.name}
             alt={provider.name}
-            style={{ width: 120, height: 120, borderRadius: '50%', objectFit: 'cover', marginBottom: -40, border: '4px solid #fff' }}
+            style={{
+              width: 118, height: 118, borderRadius: '50%', objectFit: 'cover',
+              marginBottom: -40, border: `4px solid ${brand.white}`,
+              background: brand.white,
+            }}
           />
         </div>
-        <button
-          onClick={() => navigate(-1)}
-          style={{
-            position: 'absolute', top: 16, left: 16, width: 36, height: 36, borderRadius: '50%',
-            background: 'rgba(255,255,255,0.8)', border: 'none', fontSize: 18,
-          }}
-        >‹</button>
+        <div style={{ position: 'absolute', top: 16, left: 16 }}>
+          <IconButton icon={ArrowLeft} label="Go back" onClick={() => navigate(-1)} />
+        </div>
       </div>
 
       {/* Card */}
-      <div style={{
-        background: '#fff', borderRadius: '24px 24px 0 0', marginTop: -16,
-        padding: '48px 18px 18px', position: 'relative',
-      }}>
+      <div
+        style={{
+          background: surface.card, borderRadius: `${radius.xl}px ${radius.xl}px 0 0`, marginTop: -16,
+          padding: '48px 18px 18px', position: 'relative',
+          boxShadow: shadow.nav,
+        }}
+      >
         <div style={{ textAlign: 'center', marginBottom: 4 }}>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>{provider.name}</div>
-          <div style={{ fontSize: 13, color: '#8A8A9A' }}>{provider.role_title} · {provider.phone}</div>
+          {/* Profile header name: the brand's "username" role, one step up. */}
+          <div style={{ ...type.name, color: ink.strong }}>{provider.name}</div>
+          <div style={{ ...type.meta, color: ink.muted, marginTop: 2 }}>
+            {provider.role_title || 'Service provider'} · {provider.phone}
+          </div>
         </div>
 
         {provider.phone !== ownerPhone && <SelfRecordToggle provider={provider} />}
 
         {/* Action buttons, replacing Call / Message */}
         <div style={{ display: 'flex', gap: 10, margin: '16px 0' }}>
-          <button
+          <Button
+            variant="soft"
+            icon={TrendingUp}
             onClick={() => navigate(`/provider/${id}/add-earning`)}
-            style={{ flex: 1, background: '#F1EBFF', color: '#7C5CFC', border: 'none', borderRadius: 14, padding: '12px 0', fontWeight: 600 }}
           >
-            + Add Earning
-          </button>
-          <button
+            Add Earning
+          </Button>
+          <Button
+            icon={TrendingDown}
             onClick={() => navigate(`/provider/${id}/add-payout`)}
-            style={{ flex: 1, background: '#EAF6EF', color: '#2FA866', border: 'none', borderRadius: 14, padding: '12px 0', fontWeight: 600 }}
+            style={{ background: status.success.solid, borderColor: status.success.solid }}
           >
-            + Add Payout
-          </button>
+            Add Payout
+          </Button>
         </div>
 
         {/* Totals row */}
@@ -89,27 +103,33 @@ export default function ProviderDetail() {
           <StatPill label="This Month" value={earned.month} />
         </div>
 
-        <div style={{
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          background: '#FBF7EE', borderRadius: 14, padding: '12px 16px', marginBottom: 18,
-        }}>
+        <div
+          style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            background: surface.subtle, borderRadius: radius.lg, padding: '12px 16px', marginBottom: 18,
+            border: `1px solid ${line.soft}`,
+          }}
+        >
           <div>
-            <div style={{ fontSize: 12, color: '#8A8A9A' }}>Earned all-time</div>
-            <div style={{ fontWeight: 700 }}>KES {earned.all.toLocaleString()}</div>
+            <div style={{ ...type.metaSm, color: ink.muted }}>Earned all-time</div>
+            <div className="tnum" style={{ ...type.handle, color: ink.strong }}>KES {earned.all.toLocaleString()}</div>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: '#8A8A9A' }}>Paid out</div>
-            <div style={{ fontWeight: 700 }}>KES {paid.all.toLocaleString()}</div>
+            <div style={{ ...type.metaSm, color: ink.muted }}>Paid out</div>
+            <div className="tnum" style={{ ...type.handle, color: ink.strong }}>KES {paid.all.toLocaleString()}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 12, color: '#8A8A9A' }}>Owed</div>
-            <div style={{ fontWeight: 700, color: owed > 0 ? '#D9822B' : '#2FA866' }}>
+            <div style={{ ...type.metaSm, color: ink.muted }}>Owed</div>
+            <div
+              className="tnum"
+              style={{ ...type.handle, color: owed > 0 ? status.pending.fg : status.success.fg }}
+            >
               KES {owed.toLocaleString()}
             </div>
           </div>
         </div>
 
-        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>
+        <div style={{ ...type.section, color: ink.strong, marginBottom: 10 }}>
           Activity ({feed.length})
         </div>
 

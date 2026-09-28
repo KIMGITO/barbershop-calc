@@ -5,6 +5,8 @@ import { useShopStore } from './store/useShopStore'
 import { startSyncLoop } from './lib/sync'
 import { initNativeShell, initBackButtonHandler } from './lib/nativeShell'
 import NetworkBanner from './components/NetworkBanner'
+import { Button } from './components/ui'
+import { status, type, ink } from './theme'
 import BottomNav, { OWNER_TABS, providerTabs } from './components/BottomNav'
 import { useProviderStore } from './store/useProviderStore'
 
@@ -53,6 +55,7 @@ export default function App() {
       <HashRouter>
         <NetworkBanner />
         <RequestsPoller />
+        <RemotePuller />
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/requests" element={<Requests />} />
@@ -86,7 +89,7 @@ function RoleChoice() {
   }, [])
 
   if (error) {
-    return <div style={{ padding: 24, color: '#D9482B' }}>{error}</div>
+    return <div style={{ padding: 24, color: status.danger.fg }}>{error}</div>
   }
   if (exists === null) return null
 
@@ -97,13 +100,13 @@ function RoleChoice() {
   if (choice === 'provider') return <ProviderClaim />
   return (
     <div style={{ padding: 24, minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 }}>
-      <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Barbershop</div>
-      <button onClick={() => setChoice('owner')} style={{ padding: 16, borderRadius: 14, border: 'none', background: '#7C5CFC', color: '#fff', fontWeight: 700 }}>
+      <div style={{ ...type.display, color: ink.strong, marginBottom: 8 }}>Barbershop</div>
+      <Button onClick={() => setChoice('owner')} variant="primary" full>
         I'm the Admin
-      </button>
-      <button onClick={() => setChoice('provider')} style={{ padding: 16, borderRadius: 14, border: '1px solid #7C5CFC', background: '#fff', color: '#7C5CFC', fontWeight: 700 }}>
+      </Button>
+      <Button onClick={() => setChoice('provider')} variant="ghost" full>
         I'm a Service Provider
-      </button>
+      </Button>
     </div>
   )
 }
@@ -121,6 +124,31 @@ function RequestsPoller() {
     const onVisible = () => { if (document.visibilityState === 'visible') loadRequests() }
     document.addEventListener('visibilitychange', onVisible)
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
+  }, [shopId])
+
+  return null
+}
+
+// Downloads history from the server: on start (this is what restores
+// everything on a new phone), then every minute, on returning to the app,
+// and when the connection comes back. Owners only — a provider's own view
+// is read straight from the server through get_provider_view.
+function RemotePuller() {
+  const shopId = useShopStore((s) => s.shopId)
+  const pullRemote = useShopStore((s) => s.pullRemote)
+
+  useEffect(() => {
+    if (!shopId) return
+    pullRemote()
+    const timer = setInterval(pullRemote, 60000)
+    const onVisible = () => { if (document.visibilityState === 'visible') pullRemote() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', pullRemote)
+    return () => {
+      clearInterval(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', pullRemote)
+    }
   }, [shopId])
 
   return null

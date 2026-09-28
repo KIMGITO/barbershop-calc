@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useShopStore } from '../store/useShopStore'
+import { Screen, Button, Field, Input, ErrorText } from '../components/ui'
+import { type, ink, surface } from '../theme'
 
 export default function AddProvider() {
   const navigate = useNavigate()
@@ -28,56 +30,41 @@ export default function AddProvider() {
   }
 
   return (
-    <div style={{ padding: 20, paddingBottom: 100 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Add Provider</div>
-      <div style={{ fontSize: 12, color: '#8A8A9A', marginBottom: 20 }}>
+    <Screen style={{ padding: 20 }}>
+      <div style={{ ...type.screen, color: ink.strong, marginBottom: 4 }}>Add Provider</div>
+      <div style={{ ...type.meta, color: ink.muted, marginBottom: 20 }}>
         Give them their phone number afterwards — opening the app and entering it claims their account.
       </div>
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Name</label>
-      <input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="e.g. Brian Otieno"
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 16, fontSize: 16 }}
-      />
+      <Field label="Name" id="p-name">
+        <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Brian Otieno" big />
+      </Field>
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Phone number</label>
-      <input
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        placeholder="2547XXXXXXXX"
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 16, fontSize: 16 }}
-      />
+      <Field label="Phone number" id="p-phone">
+        <Input id="p-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="2547XXXXXXXX" inputMode="tel" big />
+      </Field>
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Role / title (optional)</label>
-      <input
-        value={roleTitle}
-        onChange={(e) => setRoleTitle(e.target.value)}
-        placeholder="e.g. Barber, Braider"
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 16, fontSize: 16 }}
-      />
+      <Field label="Role / title (optional)" id="p-role">
+        <Input id="p-role" value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} placeholder="e.g. Barber, Braider" big />
+      </Field>
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Photo URL (optional)</label>
-      <input
-        value={photoUrl}
-        onChange={(e) => setPhotoUrl(e.target.value)}
-        placeholder="Leave blank to use initials instead"
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 20, fontSize: 16 }}
-      />
-      {photoUrl ? (
-        <img src={photoUrl} alt="Preview" style={{ width: 56, height: 56, borderRadius: 16, objectFit: 'cover', marginBottom: 16, background: '#eee' }} />
-      ) : null}
+      <Field label="Photo URL (optional)" id="p-photo" hint="Leave blank to use initials instead">
+        <Input id="p-photo" value={photoUrl} onChange={(e) => setPhotoUrl(e.target.value)} placeholder="https://…" big />
+      </Field>
 
-      {error && <div style={{ color: '#D9482B', marginBottom: 12, fontSize: 13 }}>{error}</div>}
+      {photoUrl && (
+        <img
+          src={photoUrl}
+          alt=""
+          style={{ width: 56, height: 56, borderRadius: 16, objectFit: 'cover', marginBottom: 16, background: surface.subtle }}
+        />
+      )}
 
-      <button
-        onClick={submit}
-        disabled={saving}
-        style={{ width: '100%', background: '#7C5CFC', color: '#fff', border: 'none', borderRadius: 14, padding: 16, fontWeight: 700, fontSize: 15 }}
-      >
+      <ErrorText>{error}</ErrorText>
+
+      <Button onClick={submit} disabled={saving} full>
         {saving ? 'Saving…' : 'Add Provider'}
-      </button>
-    </div>
+      </Button>
+    </Screen>
   )
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useShopStore } from '../store/useShopStore'
+import { brand, ink, line, shadow, surface, type, radius, status } from '../theme'
 
 // Admin switch: may this provider record their own services (for approval)?
 export default function SelfRecordToggle({ provider }) {
@@ -21,30 +22,48 @@ export default function SelfRecordToggle({ provider }) {
   }
 
   return (
-    <div style={{ background: '#F7F5FC', borderRadius: 14, padding: '12px 14px', marginBottom: 16 }}>
+    <div
+      style={{
+        background: surface.card,
+        border: `1px solid ${line.hair}`,
+        borderRadius: radius.lg,
+        padding: '14px',
+        margin: '16px 0',
+      }}
+    >
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>Let {provider.name.split(' ')[0]} record services</div>
-          <div style={{ fontSize: 12, color: '#8A8A9A', marginTop: 2 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ ...type.handle, color: ink.strong }}>Let {provider.name.split(' ')[0]} record services</div>
+          <div style={{ ...type.meta, color: ink.muted, marginTop: 2 }}>
             {on ? 'On — their records reach you for approval first.' : 'Off — only you can add earnings.'}
           </div>
         </div>
         <button
           onClick={flip}
           disabled={busy}
-          aria-pressed={on}
+          role="switch"
+          aria-checked={on}
+          aria-label={`Let ${provider.name.split(' ')[0]} record services`}
           style={{
-            width: 48, height: 28, borderRadius: 999, border: 'none', padding: 3, flexShrink: 0,
-            background: on ? '#7C5CFC' : '#D5D2E2', opacity: busy ? 0.6 : 1, transition: 'background 150ms',
+            width: 50, height: 30, borderRadius: 999, border: 'none', padding: 3, flexShrink: 0,
+            background: on ? brand.primary : line.hair,
+            opacity: busy ? 0.6 : 1, transition: 'background 150ms',
+            display: 'flex', alignItems: 'center',
           }}
         >
-          <div style={{
-            width: 22, height: 22, borderRadius: '50%', background: '#fff',
-            transform: on ? 'translateX(20px)' : 'translateX(0)', transition: 'transform 150ms',
-          }} />
+          <span
+            aria-hidden
+            style={{
+              width: 24, height: 24, borderRadius: '50%', background: brand.white,
+              transform: on ? 'translateX(20px)' : 'translateX(0)', transition: 'transform 150ms',
+              boxShadow: shadow.card,
+            }}
+          />
         </button>
       </div>
-      {error && <div style={{ color: '#D9482B', fontSize: 12, marginTop: 8 }}>{error}</div>}
+      {error && (
+        <div role="alert" style={{ ...type.meta, color: status.danger.fg, marginTop: 8 }}>{error}</div>
+      )}
     </div>
   )
 }

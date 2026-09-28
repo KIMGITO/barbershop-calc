@@ -1,3 +1,6 @@
+import { Check } from 'lucide-react'
+import { brand, ink, line, surface, type, radius, primaryDeep } from '../theme'
+
 // Multi-select service chips. `services` = [{ id, name, default_price }].
 export default function ServicePicker({ services, selected, onToggle }) {
   return (
@@ -9,13 +12,20 @@ export default function ServicePicker({ services, selected, onToggle }) {
             key={s.id}
             type="button"
             onClick={() => onToggle(s.id)}
+            aria-pressed={on}
             style={{
-              padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 600,
-              border: on ? '2px solid #7C5CFC' : '1px solid #E0DEEB',
-              background: on ? '#F1EBFF' : '#fff',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '10px 14px', borderRadius: radius.md,
+              ...type.comment, fontWeight: on ? 700 : 500,
+              border: `1px solid ${on ? brand.primary : line.hair}`,
+              background: on ? surface.wash : surface.card,
+              color: on ? primaryDeep : ink.soft,
             }}
           >
-            {on ? '✓ ' : ''}{s.name}{s.default_price ? ` · ${Number(s.default_price).toLocaleString()}` : ''}
+            {/* A tick box, not a tick character: it reads as a control. */}
+            {on && <Check size={15} strokeWidth={3} aria-hidden />}
+            {s.name}
+            {s.default_price ? <span className="tnum" style={{ ...type.meta, color: ink.muted }}>· {Number(s.default_price).toLocaleString()}</span> : null}
           </button>
         )
       })}

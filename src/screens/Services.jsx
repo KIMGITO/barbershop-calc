@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react'
+import { Plus, Scissors, Tag } from 'lucide-react'
 import { useShopStore } from '../store/useShopStore'
+import { Screen, Card, Button, Field, Input, ErrorText, EmptyState } from '../components/ui'
+import { ink, type, primaryDeep } from '../theme'
 
 export default function Services() {
   const shopId = useShopStore((s) => s.shopId)
@@ -32,51 +35,62 @@ export default function Services() {
   }
 
   return (
-    <div style={{ padding: 16, paddingBottom: 100 }}>
-      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Services</div>
+    <Screen>
+      <div style={{ ...type.screen, color: ink.strong, marginBottom: 16 }}>Services</div>
 
-      <div style={{ background: '#fff', border: '1px solid #F0EEF7', borderRadius: 16, padding: 14, marginBottom: 20 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>New service</div>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Hair & Beard Cut"
-          style={{ width: '100%', padding: 12, borderRadius: 10, border: '1px solid #E0DEEB', marginBottom: 10, fontSize: 14 }}
-        />
-        <input
-          type="number"
-          value={price}
-          onChange={(e) => setPrice(e.target.value)}
-          placeholder="Default price, KES (optional)"
-          style={{ width: '100%', padding: 12, borderRadius: 10, border: '1px solid #E0DEEB', marginBottom: 10, fontSize: 14 }}
-        />
-        {error && <div style={{ color: '#D9482B', marginBottom: 8, fontSize: 12 }}>{error}</div>}
-        <button
-          onClick={submit}
-          disabled={saving}
-          style={{ width: '100%', background: '#7C5CFC', color: '#fff', border: 'none', borderRadius: 10, padding: 12, fontWeight: 700, fontSize: 14 }}
-        >
+      <Card style={{ marginBottom: 20 }}>
+        <div style={{ ...type.handle, color: ink.strong, marginBottom: 12 }}>New service</div>
+        <Field label="Service name">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Hair & Beard Cut"
+          />
+        </Field>
+        <Field label="Default price (KES)" hint="Optional — you can still type a different amount when recording.">
+          <Input
+            type="number"
+            inputMode="decimal"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            placeholder="e.g. 500"
+          />
+        </Field>
+        <ErrorText>{error}</ErrorText>
+        <Button full onClick={submit} disabled={saving || !name.trim()} icon={Plus}>
           {saving ? 'Saving…' : 'Add Service'}
-        </button>
+        </Button>
+      </Card>
+
+      <div style={{ ...type.metaSm, color: ink.muted, letterSpacing: '0.02em', marginBottom: 8 }}>
+        YOUR PRICE LIST ({services.length})
       </div>
 
       {services.map((s) => (
-        <div
+        <Card
           key={s.id}
-          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #F0EEF7', borderRadius: 14, padding: '12px 14px', marginBottom: 8 }}
+          style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '12px 14px', marginBottom: 8,
+          }}
         >
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</div>
-          <div style={{ color: '#7C5CFC', fontWeight: 700, fontSize: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <Tag size={16} color={ink.muted} strokeWidth={2.2} aria-hidden style={{ flexShrink: 0 }} />
+            <div style={{ ...type.body, color: ink.strong, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {s.name}
+            </div>
+          </div>
+          <div className="tnum" style={{ ...type.handle, color: primaryDeep, flexShrink: 0 }}>
             {s.default_price ? `KES ${Number(s.default_price).toLocaleString()}` : '—'}
           </div>
-        </div>
+        </Card>
       ))}
 
       {services.length === 0 && (
-        <div style={{ color: '#8A8A9A', textAlign: 'center', marginTop: 20 }}>
-          No services yet. Add your shop's price list above.
-        </div>
+        <EmptyState icon={Scissors}>
+          No services yet. Add your shop's price list above — it makes recording an earning much faster.
+        </EmptyState>
       )}
-    </div>
+    </Screen>
   )
 }

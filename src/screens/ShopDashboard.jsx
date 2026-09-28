@@ -1,6 +1,9 @@
 import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, Users } from 'lucide-react'
 import { useShopStore } from '../store/useShopStore'
 import StatPill from '../components/StatPill'
+import { Card, IconButton, SectionTitle, EmptyState } from '../components/ui'
+import { ink, type, status } from '../theme'
 
 export default function ShopDashboard() {
   const navigate = useNavigate()
@@ -11,35 +14,41 @@ export default function ShopDashboard() {
 
   return (
     <div style={{ padding: 16, paddingBottom: 90 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-        <button onClick={() => navigate(-1)} style={{ border: 'none', background: 'none', fontSize: 20 }}>‹</button>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>Shop Totals</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <IconButton icon={ArrowLeft} label="Go back" onClick={() => navigate(-1)} />
+        <div style={{ ...type.screen, color: ink.strong }}>Shop Totals</div>
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
         <StatPill label="Total Earned" value={earned} />
-        <StatPill label="Total Paid Out" value={paid} accent="#2FA866" />
-        <StatPill label="Owed to Team" value={owed} accent="#D9822B" />
+        <StatPill label="Paid Out" value={paid} accent={status.success.fg} />
+        <StatPill label="Owed to Team" value={owed} accent={status.pending.fg} />
       </div>
 
-      <div style={{ fontWeight: 700, marginBottom: 10 }}>Per Provider</div>
+      <SectionTitle>Per Provider</SectionTitle>
       {providers.map((p) => {
         const s = providerSummary(p.id)
+        const owedTone = s.owed > 0 ? status.pending.fg : status.success.fg
         return (
-          <div key={p.id} style={{
-            display: 'flex', justifyContent: 'space-between', background: '#fff',
-            border: '1px solid #F0EEF7', borderRadius: 14, padding: 14, marginBottom: 8,
-          }}>
-            <div style={{ fontWeight: 600 }}>{p.name}</div>
-            <div style={{ textAlign: 'right', fontSize: 13 }}>
-              <div>Earned: KES {s.earned.all.toLocaleString()}</div>
-              <div style={{ color: s.owed > 0 ? '#D9822B' : '#2FA866' }}>
-                Owed: KES {s.owed.toLocaleString()}
+          <Card key={p.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginBottom: 8 }}>
+            <div style={{ ...type.handle, color: ink.strong }}>{p.name}</div>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <div className="tnum" style={{ ...type.meta, color: ink.soft }}>
+                Earned {s.earned.all.toLocaleString()}
+              </div>
+              <div className="tnum" style={{ ...type.meta, color: owedTone, fontWeight: 700 }}>
+                Owed {s.owed.toLocaleString()}
               </div>
             </div>
-          </div>
+          </Card>
         )
       })}
+
+      {providers.length === 0 && (
+        <EmptyState icon={Users}>
+          No providers yet, so there are no per-person totals to show.
+        </EmptyState>
+      )}
     </div>
   )
 }

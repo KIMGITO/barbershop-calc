@@ -3,6 +3,9 @@ import { useProviderStore } from '../store/useProviderStore'
 import { money, dayLabel } from '../utils/activity'
 import RequestStatus from '../components/RequestStatus'
 import ServicePicker from '../components/ServicePicker'
+import { Screen, Button, Card, Field, Input, ErrorText, EmptyState, SectionTitle } from '../components/ui'
+import { Send, Receipt, Lock } from 'lucide-react'
+import { ink, type, radius, status, primaryDeep } from '../theme'
 
 // Provider: record a service you did. It goes to the admin for approval.
 export default function RecordService() {
@@ -24,12 +27,12 @@ export default function RecordService() {
 
   if (!provider.can_self_record) {
     return (
-      <div style={{ padding: 24 }}>
-        <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 8 }}>Record a service</div>
-        <div style={{ color: '#8A8A9A', fontSize: 14 }}>
+      <Screen>
+        <div style={{ ...type.screen, color: ink.strong, marginBottom: 10 }}>Record a service</div>
+        <EmptyState icon={Lock}>
           Recording is turned off for your account. Ask the admin to turn it on.
-        </div>
-      </div>
+        </EmptyState>
+      </Screen>
     )
   }
 
@@ -56,75 +59,92 @@ export default function RecordService() {
   }
 
   return (
-    <div style={{ padding: 16, paddingBottom: 110 }}>
-      <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 4 }}>Record a service</div>
-      <div style={{ fontSize: 12, color: '#8A8A9A', marginBottom: 16 }}>
+    <Screen>
+      <div style={{ ...type.screen, color: ink.strong, marginBottom: 4 }}>Record a service</div>
+      <div style={{ ...type.body, color: ink.soft, marginBottom: 18 }}>
         The admin reviews it first. It counts toward your earnings once approved.
       </div>
 
       {services.length > 0 && (
-        <>
-          <label style={{ fontSize: 12, color: '#8A8A9A' }}>Services (pick one or more)</label>
+        <Field label="Services — pick one or more">
           <ServicePicker services={services} selected={selected} onToggle={toggle} />
-        </>
+        </Field>
       )}
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>
-        Amount (KES){!manual && suggested ? ' — from selected services' : ''}
-      </label>
-      <input
-        type="number"
-        value={amount}
-        onChange={(e) => { setAmount(e.target.value); setManual(true) }}
-        placeholder="e.g. 500"
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', margin: '6px 0 16px', fontSize: 16 }}
-      />
-
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Note (optional)</label>
-      <input
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        placeholder="Anything the admin should know"
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', margin: '6px 0 18px', fontSize: 16 }}
-      />
-
-      {error && <div style={{ color: '#D9482B', marginBottom: 12, fontSize: 13 }}>{error}</div>}
-      {sent && <div style={{ color: '#2FA866', marginBottom: 12, fontSize: 13, fontWeight: 600 }}>Sent to the admin for approval.</div>}
-
-      <button
-        onClick={submit}
-        disabled={busy || !amount}
-        style={{ width: '100%', background: '#7C5CFC', color: '#fff', border: 'none', borderRadius: 14, padding: 16, fontWeight: 700, fontSize: 15, opacity: busy || !amount ? 0.6 : 1 }}
+      <Field
+        label="Amount (KES)"
+        hint={!manual && suggested ? 'Taken from the services you picked — change it if needed.' : undefined}
       >
-        {busy ? 'Sending…' : 'Send for approval'}
-      </button>
+        <Input
+          type="number"
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => { setAmount(e.target.value); setManual(true) }}
+          placeholder="e.g. 500"
+        />
+      </Field>
 
-      <div style={{ fontWeight: 700, fontSize: 15, margin: '26px 0 10px' }}>My records</div>
+      <Field label="Note (optional)">
+        <Input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="Anything the admin should know"
+        />
+      </Field>
+
+      <ErrorText>{error}</ErrorText>
+      {sent && (
+        // Announced, but politely: success shouldn't interrupt mid-task.
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            display: 'flex', alignItems: 'center', gap: 7,
+            background: status.success.bg, color: status.success.fg,
+            ...type.body, fontWeight: 600, marginBottom: 12,
+            padding: '11px 14px', borderRadius: radius.md,
+          }}
+        >
+          <Send size={15} strokeWidth={2.4} aria-hidden />
+          Sent to the admin for approval.
+        </div>
+      )}
+
+      <Button full icon={Send} onClick={submit} disabled={busy || !amount}>
+        {busy ? 'Sending…' : 'Send for approval'}
+      </Button>
+
+      <SectionTitle>My records</SectionTitle>
       {requests.map((r) => (
-        <div key={r.id} style={{ background: '#fff', border: '1px solid #F0EEF7', borderRadius: 14, padding: 12, marginBottom: 8 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div style={{ fontWeight: 600, fontSize: 14 }}>
+        <Card key={r.id} style={{ marginBottom: 8, padding: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ ...type.handle, color: ink.strong }}>
               {(r.services || []).length ? r.services.map((s) => s.name).join(' + ') : (r.note || 'Service')}
             </div>
-            <div style={{ fontWeight: 700 }}>{money(r.amount)}</div>
+            <div className="tnum" style={{ ...type.handle, color: primaryDeep, whiteSpace: 'nowrap' }}>
+              {money(r.amount)}
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
             <RequestStatus status={r.status} />
-            <span style={{ fontSize: 12, color: '#8A8A9A' }}>
+            <span style={{ ...type.meta, color: ink.muted }}>
               {dayLabel(r.created_at)}, {new Date(r.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
             {r.status === 'pending' && (
-              <button onClick={() => cancel(r.id)} style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#D9482B', fontSize: 12, fontWeight: 600 }}>
+              <button
+                onClick={() => cancel(r.id)}
+                style={{ marginLeft: 'auto', background: 'none', border: 'none', color: status.danger.fg, ...type.meta, fontWeight: 700 }}
+              >
                 Cancel
               </button>
             )}
           </div>
           {r.status === 'rejected' && r.review_note && (
-            <div style={{ fontSize: 12, color: '#6E6E82', marginTop: 6 }}>Admin: {r.review_note}</div>
+            <div style={{ ...type.meta, color: ink.soft, marginTop: 6 }}>Admin: {r.review_note}</div>
           )}
-        </div>
+        </Card>
       ))}
-      {requests.length === 0 && <div style={{ color: '#8A8A9A', fontSize: 13 }}>Nothing sent yet.</div>}
-    </div>
+      {requests.length === 0 && <EmptyState icon={Receipt}>Nothing sent yet.</EmptyState>}
+    </Screen>
   )
 }

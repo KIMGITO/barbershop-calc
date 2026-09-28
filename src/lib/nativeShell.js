@@ -10,11 +10,16 @@ export async function initNativeShell() {
     // overlay: false is what "guarantees" the status bar area — the
     // WebView is pushed down below it instead of drawing under it, so
     // nothing the app renders can ever end up hidden behind the clock/
-    // battery icons. Style/Dark = light text+icons, for our dark-on-light
-    // top bar; background matches the app's off-white background.
+    // battery icons. Style/Dark = light text+icons for our light-on-dark
+    // chrome. The background must match the app's --background; Capacitor
+    // needs a literal colour (it can't resolve CSS vars), so read the
+    // variable from :root at runtime — the palette stays the single
+    // source of truth in src/index.css.
     await StatusBar.setOverlaysWebView({ overlay: false })
     await StatusBar.setStyle({ style: Style.Dark })
-    await StatusBar.setBackgroundColor({ color: '#F4F2FA' })
+    const background =
+      getComputedStyle(document.documentElement).getPropertyValue('--background').trim() || '#000000'
+    await StatusBar.setBackgroundColor({ color: background })
   } catch {
     // Status bar plugin not available on this platform/build — ignore.
   }

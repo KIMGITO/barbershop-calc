@@ -9,6 +9,7 @@ export default function History() {
   const providers = useShopStore((s) => s.providers)
   const earningsByProvider = useShopStore((s) => s.earningsByProvider)
   const payoutsByProvider = useShopStore((s) => s.payoutsByProvider)
+  const pulling = useShopStore((s) => s.pulling)
   const loadProviders = useShopStore((s) => s.loadProviders)
   const loadProviderLogs = useShopStore((s) => s.loadProviderLogs)
 
@@ -22,5 +23,5 @@ export default function History() {
   const payouts = providers.flatMap((p) => payoutsByProvider[p.id] || [])
   const activities = mergeActivities(earnings, payouts, nameOf)
 
-  return <HistoryView activities={activities} providers={providers} />
+  return <HistoryView activities={activities} providers={providers} loading={pulling} />
 }

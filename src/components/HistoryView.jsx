@@ -1,14 +1,27 @@
 import { useMemo, useState } from 'react'
+import { Search, TrendingUp, TrendingDown, Layers, X, Users } from 'lucide-react'
 import ActivityFeed from './ActivityFeed'
+import Select from './Select'
+import { brand, ink, line, shadow, surface, type, radius, primaryDeep } from '../theme'
 import { matchesQuery, totals, money } from '../utils/activity'
 
+const KINDS = [
+  { value: 'all', label: 'All', icon: Layers },
+  { value: 'earning', label: 'Earnings', icon: TrendingUp },
+  { value: 'payout', label: 'Payouts', icon: TrendingDown },
+]
+
 const chip = (active) => ({
-  padding: '7px 14px', borderRadius: 999, fontSize: 12, fontWeight: 600, border: 'none',
-  background: active ? '#7C5CFC' : '#fff', color: active ? '#fff' : '#6E6E82',
+  display: 'inline-flex', alignItems: 'center', gap: 6,
+  padding: '7px 14px', borderRadius: radius.pill,
+  ...type.meta, fontWeight: active ? 700 : 500,
+  border: `1px solid ${active ? brand.primary : line.hair}`,
+  background: active ? brand.primary : surface.card,
+  color: active ? brand.white : ink.soft,
 })
 
 // Searchable audit history. `providers` (optional) enables a provider filter.
-export default function HistoryView({ activities, providers }) {
+export default function HistoryView({ activities, providers, loading = false }) {
   const [q, setQ] = useState('')
   const [kind, setKind] = useState('all')
   const [providerId, setProviderId] = useState('all')
@@ -21,34 +34,87 @@ export default function HistoryView({ activities, providers }) {
     [activities, q, kind, providerId],
   )
   const sum = totals(filtered)
+  const showProviderFilter = providers && providers.length > 1
 
   return (
     <div style={{ paddingBottom: 110 }}>
-      <div style={{ position: 'sticky', top: 0, zIndex: 20, background: '#F4F2FA', padding: '16px 16px 10px' }}>
-        <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 12 }}>History</div>
-        <input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder="Search services, people, notes, M-Pesa codes…"
-          style={{ width: '100%', padding: 12, borderRadius: 12, border: '1px solid #E0DEEB', fontSize: 14, marginBottom: 10, background: '#fff' }}
-        />
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
-          <button style={chip(kind === 'all')} onClick={() => setKind('all')}>All</button>
-          <button style={chip(kind === 'earning')} onClick={() => setKind('earning')}>Earnings</button>
-          <button style={chip(kind === 'payout')} onClick={() => setKind('payout')}>Payouts</button>
+      <div
+        style={{
+          position: 'sticky', top: 0, zIndex: 20,
+          background: surface.page,
+          padding: '16px 16px 10px',
+          // A soft fade so feed cards slide under the header cleanly.
+          boxShadow: shadow.header,
+        }}
+      >
+        <div style={{ ...type.screen, color: ink.strong, marginBottom: 12 }}>History</div>
+
+        <div style={{ position: 'relative', marginBottom: 10 }}>
+          <Search
+            size={17} color={ink.muted} strokeWidth={2.2} aria-hidden
+            style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+          />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search services, people, notes, M-Pesa codes…"
+            aria-label="Search activity"
+            style={{
+              width: '100%', padding: '12px 38px 12px 38px', minHeight: 46,
+              borderRadius: radius.md, border: `1px solid ${line.hair}`,
+              background: surface.card, color: ink.strong, ...type.body,
+            }}
+          />
+          {q && (
+            <button
+              onClick={() => setQ('')}
+              aria-label="Clear search"
+              style={{
+                position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+                width: 30, height: 30, borderRadius: radius.pill, border: 'none',
+                background: surface.subtle, color: ink.soft,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <X size={14} strokeWidth={2.5} aria-hidden />
+            </button>
+          )}
         </div>
-        {providers && providers.length > 1 && (
-          <select
-            value={providerId}
-            onChange={(e) => setProviderId(e.target.value)}
-            style={{ width: '100%', padding: 10, borderRadius: 12, border: '1px solid #E0DEEB', marginTop: 10, background: '#fff', fontSize: 13 }}
-          >
-            <option value="all">All providers</option>
-            {providers.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
+
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+          {KINDS.map((k) => (
+            <button key={k.value} style={chip(kind === k.value)} onClick={() => setKind(k.value)} aria-pressed={kind === k.value}>
+              <k.icon size={14} strokeWidth={2.4} aria-hidden />
+              {k.label}
+            </button>
+          ))}
+        </div>
+
+        {/* The provider filter is the app's own dropdown, not a native
+            <select> — a native one renders the OS menu and ignores the brand. */}
+        {showProviderFilter && (
+          <div style={{ marginTop: 10 }}>
+            <Select
+              value={providerId}
+              onChange={setProviderId}
+              ariaLabel="Filter by provider"
+              icon={Users}
+              options={[
+                { value: 'all', label: 'All providers' },
+                ...providers.map((p) => ({ value: p.id, label: p.name })),
+              ]}
+            />
+          </div>
         )}
-        <div style={{ fontSize: 12, color: '#8A8A9A', marginTop: 10 }}>
-          {filtered.length} {filtered.length === 1 ? 'activity' : 'activities'} · Earned {money(sum.earned)} · Paid {money(sum.paid)}
+
+        <div
+          role="status"
+          aria-live="polite"
+          style={{ ...type.meta, color: ink.muted, marginTop: 10 }}
+        >
+          {filtered.length} {filtered.length === 1 ? 'activity' : 'activities'} ·{' '}
+          <span className="tnum" style={{ color: primaryDeep, fontWeight: 700 }}>{money(sum.earned)}</span> earned ·{' '}
+          <span className="tnum" style={{ fontWeight: 700 }}>{money(sum.paid)}</span> paid
         </div>
       </div>
 
@@ -56,7 +122,13 @@ export default function HistoryView({ activities, providers }) {
         <ActivityFeed
           items={filtered}
           showProvider={!providers || providers.length > 0}
-          emptyText={q || kind !== 'all' || providerId !== 'all' ? 'No activity matches your search.' : 'No activity yet.'}
+          emptyText={
+            loading
+              ? 'Restoring your history…'
+              : q || kind !== 'all' || providerId !== 'all'
+                ? 'No activity matches your search.'
+                : 'No activity yet.'
+          }
         />
       </div>
     </div>

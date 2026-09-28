@@ -1,8 +1,15 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useShopStore } from '../store/useShopStore'
+import Select from '../components/Select'
+import { Screen, Button, Field, Input } from '../components/ui'
+import { font } from '../theme'
 
-const METHODS = ['cash', 'mpesa', 'bank']
+const METHODS = [
+  { value: 'cash', label: 'Cash' },
+  { value: 'mpesa', label: 'M-Pesa' },
+  { value: 'bank', label: 'Bank' },
+]
 
 export default function AddPayout() {
   const { id } = useParams()
@@ -23,60 +30,43 @@ export default function AddPayout() {
   }
 
   return (
-    <div style={{ padding: 20 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Add Payout</div>
+    <Screen>
+      <div style={{ ...type.screen, color: ink.strong, marginBottom: 20 }}>Add Payout</div>
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Amount (KES)</label>
-      <input
-        type="number"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 16, fontSize: 16 }}
-      />
+      <Field label="Amount (KES)">
+        <Input
+          type="number" inputMode="decimal" value={amount}
+          onChange={(e) => setAmount(e.target.value)} placeholder="0"
+        />
+      </Field>
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Method</label>
-      <div style={{ display: 'flex', gap: 8, margin: '8px 0 16px' }}>
-        {METHODS.map((m) => (
-          <button
-            key={m}
-            onClick={() => setMethod(m)}
-            style={{
-              flex: 1, padding: '10px 0', borderRadius: 10, textTransform: 'capitalize',
-              border: method === m ? '2px solid #7C5CFC' : '1px solid #E0DEEB',
-              background: method === m ? '#F1EBFF' : '#fff', fontWeight: 600,
-            }}
-          >
-            {m}
-          </button>
-        ))}
-      </div>
+      <Field label="How did you pay?">
+        <Select value={method} onChange={setMethod} options={METHODS} ariaLabel="Payout method" />
+      </Field>
 
       {method === 'mpesa' && (
-        <>
-          <label style={{ fontSize: 12, color: '#8A8A9A' }}>M-Pesa Code</label>
-          <input
+        <Field label="M-Pesa confirmation code" hint="Found in the M-Pesa confirmation SMS — it proves this payout reached them.">
+          <Input
             value={mpesaCode}
             onChange={(e) => setMpesaCode(e.target.value)}
             placeholder="e.g. QK7X8Y9Z1"
-            style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 16, fontSize: 16 }}
+            autoCapitalize="characters"
+            style={{ fontFamily: font.mono, letterSpacing: '0.06em' }}
           />
-        </>
+        </Field>
       )}
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Note (optional)</label>
-      <input
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 24, fontSize: 16 }}
-      />
+      <Field label="Note" hint="Optional — anything worth remembering later.">
+        <Input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g. Paid for the whole week"
+        />
+      </Field>
 
-      <button
-        onClick={submit}
-        disabled={saving}
-        style={{ width: '100%', background: '#2FA866', color: '#fff', border: 'none', borderRadius: 14, padding: 16, fontWeight: 700, fontSize: 15 }}
-      >
+      <Button onClick={submit} disabled={saving || !Number(amount)}>
         {saving ? 'Saving…' : 'Save Payout'}
-      </button>
-    </div>
+      </Button>
+    </Screen>
   )
 }

@@ -1,20 +1,23 @@
 import { NavLink, useLocation } from 'react-router-dom'
+import { House, Users, Scissors, ClipboardCheck, History, Plus } from 'lucide-react'
 import { useHideOnScroll } from '../hooks/useHideOnScroll'
+import { brand, ink, line, surface, type, radius, shadow, primaryDeep, status } from '../theme'
 
+// `icon` is a lucide component, rendered at 20px.
 export const OWNER_TABS = [
-  { to: '/', label: 'Home', icon: '⌂', end: true },
-  { to: '/providers', label: 'Team', icon: '👤' },
-  { to: '/services', label: 'Services', icon: '✂' },
-  { to: '/requests', label: 'Approvals', icon: '✔' },
-  { to: '/history', label: 'History', icon: '🕓' },
+  { to: '/', label: 'Home', icon: House, end: true },
+  { to: '/providers', label: 'Team', icon: Users },
+  { to: '/services', label: 'Services', icon: Scissors },
+  { to: '/requests', label: 'Approvals', icon: ClipboardCheck },
+  { to: '/history', label: 'History', icon: History },
 ]
 
 // Providers only see the Record tab when the admin has allowed it.
 export function providerTabs(canRecord) {
   return [
-    { to: '/', label: 'Today', icon: '⌂', end: true },
-    ...(canRecord ? [{ to: '/record', label: 'Record', icon: '＋' }] : []),
-    { to: '/history', label: 'History', icon: '🕓' },
+    { to: '/', label: 'Today', icon: House, end: true },
+    ...(canRecord ? [{ to: '/record', label: 'Record', icon: Plus }] : []),
+    { to: '/history', label: 'History', icon: History },
   ]
 }
 
@@ -27,6 +30,7 @@ export default function BottomNav({ tabs = OWNER_TABS, badges = {} }) {
 
   return (
     <nav
+      aria-label="Main"
       style={{
         position: 'fixed',
         left: 12,
@@ -35,10 +39,11 @@ export default function BottomNav({ tabs = OWNER_TABS, badges = {} }) {
         display: 'flex',
         justifyContent: 'space-around',
         alignItems: 'center',
-        background: '#1A1A2E',
-        borderRadius: 20,
-        padding: '10px 6px',
-        boxShadow: '0 8px 24px rgba(26,26,46,0.25)',
+        background: surface.nav,
+        border: `1px solid ${line.hair}`,
+        borderRadius: radius.xl,
+        padding: '8px 6px',
+        boxShadow: shadow.nav,
         zIndex: 100,
         transform: hidden ? 'translateY(calc(100% + 40px))' : 'translateY(0)',
         opacity: hidden ? 0 : 1,
@@ -52,23 +57,32 @@ export default function BottomNav({ tabs = OWNER_TABS, badges = {} }) {
           to={tab.to}
           end={tab.end}
           style={({ isActive }) => ({
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-            textDecoration: 'none', color: isActive ? '#fff' : '#8A8AA0',
-            padding: '4px 10px', borderRadius: 12,
-            background: isActive ? '#7C5CFC' : 'transparent', minWidth: 52, position: 'relative',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+            textDecoration: 'none',
+            color: isActive ? primaryDeep : ink.muted,
+            padding: '6px 10px', borderRadius: radius.md,
+            background: isActive ? surface.wash : 'transparent',
+            minWidth: 56, position: 'relative',
+            transition: 'background 150ms ease, color 150ms ease',
           })}
         >
           {badges[tab.to] > 0 && (
             <span style={{
-              position: 'absolute', top: -2, right: 4, minWidth: 16, height: 16, borderRadius: 8,
-              background: '#F04E4E', color: '#fff', fontSize: 10, fontWeight: 700,
+              position: 'absolute', top: -1, right: 6, minWidth: 17, height: 17, borderRadius: 999,
+              background: status.danger.solid, color: brand.white, ...type.metaSm, fontWeight: 700,
               display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px',
+              border: `2px solid ${surface.nav}`,
             }}>{badges[tab.to] > 9 ? '9+' : badges[tab.to]}</span>
           )}
-          <span style={{ fontSize: 16, lineHeight: 1 }}>{tab.icon}</span>
-          <span style={{ fontSize: 10, fontWeight: 600 }}>{tab.label}</span>
+          <tab.icon size={20} strokeWidth={isActiveIcon(tab, pathname) ? 2.5 : 2} aria-hidden />
+          <span style={{ ...type.tab, fontWeight: isActiveIcon(tab, pathname) ? 700 : 500 }}>{tab.label}</span>
         </NavLink>
       ))}
     </nav>
   )
 }
+
+function isActiveIcon(tab, pathname) {
+  return tab.end ? pathname === tab.to : pathname.startsWith(tab.to)
+}
+

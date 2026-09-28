@@ -1,7 +1,10 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { UserPlus, Users } from 'lucide-react'
 import { useShopStore } from '../store/useShopStore'
 import ProviderCard from '../components/ProviderCard'
+import { Button, EmptyState } from '../components/ui'
+import { ink, type } from '../theme'
 
 export default function ProviderList() {
   const navigate = useNavigate()
@@ -21,13 +24,10 @@ export default function ProviderList() {
   return (
     <div style={{ padding: 16, paddingBottom: 90 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ fontSize: 20, fontWeight: 700 }}>Service Providers</div>
-        <button
-          onClick={() => navigate('/add-provider')}
-          style={{ background: '#7C5CFC', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontWeight: 600, fontSize: 12 }}
-        >
-          + Add Provider
-        </button>
+        <div style={{ ...type.screen, color: ink.strong }}>Service Providers</div>
+        <Button size="sm" icon={UserPlus} onClick={() => navigate('/add-provider')}>
+          Add Provider
+        </Button>
       </div>
 
       {providers.map((p) => (
@@ -35,9 +35,9 @@ export default function ProviderList() {
       ))}
 
       {providers.length === 0 && (
-        <div style={{ color: '#8A8A9A', textAlign: 'center', marginTop: 40 }}>
+        <EmptyState icon={Users}>
           No providers yet. Add one to get started.
-        </div>
+        </EmptyState>
       )}
     </div>
   )

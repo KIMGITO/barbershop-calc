@@ -1,4 +1,6 @@
 import { useNetworkStore } from '../store/useNetworkStore'
+import { WifiOff, RefreshCw, CircleAlert, CloudUpload } from 'lucide-react'
+import { status, type } from '../theme'
 
 export default function NetworkBanner() {
   const { isOnline, isSyncing, pendingCount, lastError } = useNetworkStore()
@@ -6,30 +8,42 @@ export default function NetworkBanner() {
   if (isOnline && pendingCount === 0 && !lastError) return null
 
   let text = ''
-  let bg = '#FBF3D9'
-  let color = '#8A6D00'
+  let tone = 'pending'
+  let Icon = CloudUpload
 
   if (!isOnline) {
+    Icon = WifiOff
     text = pendingCount > 0
       ? `Offline · ${pendingCount} change${pendingCount === 1 ? '' : 's'} waiting to sync`
       : 'Offline · changes are saved on this device'
   } else if (isSyncing) {
+    tone = 'info'
+    Icon = RefreshCw
     text = 'Syncing…'
-    bg = '#E8F0FE'; color = '#1A56DB'
   } else if (lastError) {
-    text = `Sync issue — will retry automatically`
-    bg = '#FCE8E6'; color = '#B3261E'
+    tone = 'danger'
+    Icon = CircleAlert
+    text = 'Sync issue — will retry automatically'
   } else if (pendingCount > 0) {
     text = `${pendingCount} change${pendingCount === 1 ? '' : 's'} waiting to sync`
   }
 
   if (!text) return null
+  const s = status[tone] || status.pending
 
   return (
-    <div style={{
-      background: bg, color, fontSize: 12, fontWeight: 600,
-      textAlign: 'center', padding: '6px 10px',
-    }}>
+    <div
+      // Announced politely: a sync hiccup shouldn't interrupt a screen reader.
+      role="status"
+      aria-live="polite"
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+        background: s.bg, color: s.fg,
+        ...type.meta, fontWeight: 600,
+        padding: '7px 12px',
+      }}
+    >
+      <Icon size={14} strokeWidth={2.4} aria-hidden style={isSyncing ? { animation: 'spin 1.2s linear infinite' } : undefined} />
       {text}
     </div>
   )

@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { getPendingSyncRows, clearSyncedRow, getPendingSyncCount } from './db'
+import { getPendingSyncRows, clearSyncedRow, getPendingSyncCount, getMeta, setMeta, putSyncedRows } from './db'
 import { useNetworkStore } from '../store/useNetworkStore'
 
 let syncing = false
@@ -44,7 +44,7 @@ export async function runSync() {
           .upsert({ ...columns, local_id }, { onConflict: 'local_id' })
 
         if (error) throw error
-        await clearSyncedRow(local_id)
+        await clearSyncedRow(local_id, table)
       } catch (rowErr) {
         // Leave this row queued and keep going — it'll retry next pass.
         anyFailure = true
@@ -105,3 +105,76 @@ export function startSyncLoop() {
     window.removeEventListener('offline', offline)
   }
 }
+
+// --- Download (server -> this device) ---
+// Brings earnings/payouts that exist on the server but not on this device
+// (new phone, cleared storage, provider-approved records). Incremental: it
+// remembers a cursor per table and re-reads a small overlap window, which is
+// safe because saving a row is idempotent (rows are keyed by local_id).
+
+// Kept under Supabase's PostgREST max-rows (1000 by default): if the server
+// returned fewer rows than we asked for, we'd mistake a truncated page for
+// the end of the data and skip the rest forever.
+const PAGE = 500
+const OVERLAP_MS = 5 * 60 * 1000
+const MAX_PASSES = 5
+let pulling = false
+
+async function pullTable(table, shopId) {
+  const key = `pull_cursor_${table}_${shopId}`
+  let cursor = await getMeta(key)
+  const addedTotal = { added: 0, providerIds: new Set() }
+
+  // Paging is by row offset, so a row inserted by another device *while*
+  // we're paging shifts everything down by one and we skip a row. Repeating
+  // the pass from the new cursor mops that up; each pass strictly advances
+  // the cursor, so this always terminates.
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    const since = cursor ? new Date(new Date(cursor).getTime() - OVERLAP_MS).toISOString() : null
+    let newest = cursor
+    let from = 0
+    for (;;) {
+      let q = supabase
+        .from(table)
+        .select('*')
+        .eq('shop_id', shopId)
+        .order('server_created_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1)
+      if (since) q = q.gte('server_created_at', since)
+      const { data, error } = await q
+      if (error) throw error
+      if (!data?.length) break
+      const { added, providerIds } = await putSyncedRows(table, data)
+      addedTotal.added += added
+      providerIds.forEach((id) => addedTotal.providerIds.add(id))
+      newest = data[data.length - 1].server_created_at
+      if (data.length < PAGE) break
+      from += PAGE
+    }
+    if (!newest || newest === cursor) break
+    await setMeta(key, newest)
+    cursor = newest
+  }
+  return { added: addedTotal.added, providerIds: [...addedTotal.providerIds] }
+}
+
+export async function pullRemote(shopId) {
+  if (pulling || !shopId || !navigator.onLine) {
+    return { added: 0, providerIds: [] }
+  }
+  pulling = true
+  let added = 0
+  const providerIds = new Set()
+  try {
+    for (const table of ['earnings', 'payouts']) {
+      const result = await pullTable(table, shopId)
+      added += result.added
+      result.providerIds.forEach((id) => providerIds.add(id))
+    }
+  } finally {
+    pulling = false
+  }
+  return { added, providerIds: [...providerIds] }
+}
+

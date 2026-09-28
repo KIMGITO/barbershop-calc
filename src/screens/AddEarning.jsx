@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useShopStore } from '../store/useShopStore'
+import ServicePicker from '../components/ServicePicker'
+import { Screen, Button, Field, Input } from '../components/ui'
+import { type, ink } from '../theme'
 
 export default function AddEarning() {
   const { id } = useParams()
@@ -47,60 +50,47 @@ export default function AddEarning() {
   }
 
   return (
-    <div style={{ padding: 20, paddingBottom: 110 }}>
-      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 20 }}>Add Earning</div>
+    <Screen style={{ padding: 20 }}>
+      <div style={{ ...type.screen, color: ink.strong, marginBottom: 20 }}>Add Earning</div>
 
       {services.length > 0 && (
         <>
-          <label style={{ fontSize: 12, color: '#8A8A9A' }}>Services (pick one or more)</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '10px 0 16px' }}>
-            {services.map((s) => {
-              const on = selected.includes(s.id)
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => toggle(s.id)}
-                  style={{
-                    padding: '10px 14px', borderRadius: 12, fontSize: 13, fontWeight: 600,
-                    border: on ? '2px solid #7C5CFC' : '1px solid #E0DEEB',
-                    background: on ? '#F1EBFF' : '#fff',
-                  }}
-                >
-                  {on ? '✓ ' : ''}{s.name}{s.default_price ? ` · ${Number(s.default_price).toLocaleString()}` : ''}
-                </button>
-              )
-            })}
+          <div style={{ ...type.metaSm, color: ink.muted, marginBottom: 6, letterSpacing: '0.02em' }}>
+            Services (pick one or more)
           </div>
+          {/* Same picker the provider side uses, so both read identically. */}
+          <ServicePicker services={services} selected={selected} onToggle={toggle} />
         </>
       )}
 
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>
-        Amount (KES){!manual && suggested ? ' — from selected services' : ''}
-      </label>
-      <input
-        type="number"
-        value={amount}
-        onChange={(e) => { setAmount(e.target.value); setManual(true) }}
-        placeholder="e.g. 500"
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 16, fontSize: 16 }}
-      />
-
-      <label style={{ fontSize: 12, color: '#8A8A9A' }}>Note (optional)</label>
-      <input
-        value={note}
-        onChange={(e) => setNote(e.target.value)}
-        placeholder="e.g. Regular customer, tipped extra"
-        style={{ width: '100%', padding: 14, borderRadius: 12, border: '1px solid #E0DEEB', marginBottom: 24, fontSize: 16 }}
-      />
-
-      <button
-        onClick={submit}
-        disabled={saving || !amount}
-        style={{ width: '100%', background: '#7C5CFC', color: '#fff', border: 'none', borderRadius: 14, padding: 16, fontWeight: 700, fontSize: 15, opacity: saving || !amount ? 0.6 : 1 }}
+      <Field
+        label={`Amount (KES)${!manual && suggested ? ' — from selected services' : ''}`}
+        id="e-amount"
       >
+        <Input
+          id="e-amount"
+          type="number"
+          inputMode="decimal"
+          value={amount}
+          onChange={(e) => { setAmount(e.target.value); setManual(true) }}
+          placeholder="e.g. 500"
+          big
+        />
+      </Field>
+
+      <Field label="Note (optional)" id="e-note">
+        <Input
+          id="e-note"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="e.g. Regular customer, tipped extra"
+          big
+        />
+      </Field>
+
+      <Button onClick={submit} disabled={saving || !amount} full>
         {saving ? 'Saving…' : 'Save Earning'}
-      </button>
-    </div>
+      </Button>
+    </Screen>
   )
 }

@@ -1,14 +1,27 @@
+import { Clock, CircleCheck, CircleX, X } from 'lucide-react'
+import { status, type } from '../theme'
+
+// Tones are semantic, not decorative: amber = waiting, green = approved,
+// red = rejected, grey = cancelled. See theme > status.
 const STYLES = {
-  pending: { bg: '#FFF3E6', color: '#D9822B', label: 'Waiting for approval' },
-  approved: { bg: '#EAF7EF', color: '#2FA866', label: 'Approved' },
-  rejected: { bg: '#FDECEC', color: '#D9482B', label: 'Rejected' },
-  cancelled: { bg: '#EFEFF4', color: '#8A8A9A', label: 'Cancelled' },
+  pending:   { tone: 'pending', label: 'Waiting for approval', icon: Clock },
+  approved:  { tone: 'success', label: 'Approved', icon: CircleCheck },
+  rejected:  { tone: 'danger',  label: 'Rejected', icon: CircleX },
+  cancelled: { tone: 'neutral', label: 'Cancelled', icon: X },
 }
 
-export default function RequestStatus({ status }) {
-  const s = STYLES[status] || STYLES.pending
+export default function RequestStatus({ status: value }) {
+  const s = STYLES[value] || STYLES.pending
   return (
-    <span style={{ background: s.bg, color: s.color, borderRadius: 8, padding: '3px 8px', fontSize: 11, fontWeight: 700 }}>
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        background: status[s.tone].bg, color: status[s.tone].fg,
+        borderRadius: 999, padding: '3px 9px',
+        ...type.metaSm, fontWeight: 700,
+      }}
+    >
+      <s.icon size={12} strokeWidth={2.75} aria-hidden />
       {s.label}
     </span>
   )

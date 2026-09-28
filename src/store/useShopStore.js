@@ -9,18 +9,46 @@ import {
   addPayoutLocal,
   getPayoutsForProvider,
 } from '../lib/db'
-import { runSync } from '../lib/sync'
+import { runSync, pullRemote as pullRemoteData } from '../lib/sync'
+import { useNetworkStore } from './useNetworkStore'
 import { periodTotals } from '../utils/dates'
 
 export const useShopStore = create((set, get) => ({
   shopId: null,
   providers: [],
   services: [],
+  pulling: false,            // true while downloading history from the server
   requests: [],             // provider-submitted records (pending/approved/rejected)
   earningsByProvider: {},   // { [providerId]: [] }
   payoutsByProvider: {},    // { [providerId]: [] }
 
   setShopId: (shopId) => set({ shopId }),
+
+  // Downloads anything the server has that this device doesn't (new phone,
+  // cleared storage, provider-approved records), then refreshes the affected
+  // provider logs so the history on screen includes it.
+  pullRemote: async () => {
+    const { shopId } = get()
+    if (!shopId || get().pulling) return
+    set({ pulling: true })
+    try {
+      const { added, providerIds } = await pullRemoteData(shopId)
+      if (added > 0) {
+        let list = get().providers
+        if (!list.length) list = await get().loadProviders(shopId)
+        const targets = providerIds.length
+          ? list.filter((p) => providerIds.includes(p.id))
+          : list
+        await Promise.all(targets.map((p) => get().loadProviderLogs(p.id)))
+      }
+    } catch (e) {
+      // Reads are offline-friendly: keep the local history on screen and just
+      // flag that the download didn't complete. It retries on the next poll.
+      useNetworkStore.getState().setError(`Could not restore history: ${e.message || 'unknown error'}`)
+    } finally {
+      set({ pulling: false })
+    }
+  },
 
   // --- Provider self-recording ---
   setCanSelfRecord: async (providerId, value) => {

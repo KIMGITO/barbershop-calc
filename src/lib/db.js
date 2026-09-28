@@ -118,9 +118,48 @@ export async function getPendingSyncCount() {
   return db.count('sync_queue')
 }
 
-export async function clearSyncedRow(localId) {
+// Called once Supabase has accepted a queued row: drop it from the queue
+// AND clear its `pending` flag, so the UI stops showing "syncing…".
+export async function clearSyncedRow(localId, table) {
   const db = await getDB()
   await db.delete('sync_queue', localId)
+  if (table) {
+    const row = await db.get(table, localId)
+    if (row) await db.put(table, { ...row, pending: false })
+  }
+}
+
+// --- Generic key/value (used for the download cursors) ---
+export async function getMeta(key) {
+  const db = await getDB()
+  return (await db.get('meta', key))?.value ?? null
+}
+
+export async function setMeta(key, value) {
+  const db = await getDB()
+  await db.put('meta', { key, value })
+}
+
+// Saves rows downloaded from the server. A row this device is still waiting
+// to upload is left alone (the local copy wins until it syncs).
+// Returns how many rows were new to this device, and which providers they
+// belong to, so the caller only has to refresh the affected screens.
+export async function putSyncedRows(table, rows) {
+  const db = await getDB()
+  const tx = db.transaction(table, 'readwrite')
+  const providerIds = new Set()
+  let added = 0
+  for (const row of rows) {
+    const local = await tx.store.get(row.local_id)
+    if (local?.pending) continue
+    if (!local) {
+      added += 1
+      providerIds.add(row.provider_id)
+    }
+    await tx.store.put({ ...row, pending: false })
+  }
+  await tx.done
+  return { added, providerIds: [...providerIds] }
 }
 
 // --- Device token (persisted permanently for the "claim once" provider auth) ---

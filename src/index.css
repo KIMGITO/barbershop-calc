@@ -1,9 +1,121 @@
+/* Latin subset only. The full @fontsource imports also ship cyrillic,
+   greek, vietnamese and math — 392 kB of fonts this app can never render.
+   The three weights here are the only ones the type scale uses. */
+@import '@fontsource/roboto/latin-400.css';
+@import '@fontsource/roboto/latin-500.css';
+@import '@fontsource/roboto/latin-700.css';
+
+/* ============================================================
+   Brand palette — the single source of truth for colour.
+   No component or page contains a colour literal: they read tokens
+   from src/theme.js, which references the variables defined here.
+   Re-theming the app means editing this block only.
+   ============================================================ */
+:root {
+  --background: #000000;
+  --foreground: #fff2ea;
+
+  --primary: #e67a4c;
+  --primary-foreground: #ffffff;
+
+  --surface: #262626;
+  --surface-foreground: #fff2ea;
+
+  --muted: #262626;
+  --muted-foreground: #ffffff;
+
+  --border: #262626;
+
+  --accent: #e67a4c;
+  --accent-soft: #fff2ea;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(
+    135deg,
+    #e67a4c 0%,
+    #262626 100%
+  );
+
+  --gradient-dark: linear-gradient(
+    135deg,
+    #000000 0%,
+    #262626 100%
+  );
+
+  --gradient-warm: linear-gradient(
+    135deg,
+    #262626 0%,
+    #e67a4c 100%
+  );
+
+  --gradient-soft: linear-gradient(
+    135deg,
+    #e67a4c 0%,
+    #fff2ea 100%
+  );
+
+  --gradient-dark-warm: linear-gradient(
+    135deg,
+    #000000 0%,
+    #262626 55%,
+    #e67a4c 100%
+  );
+}
+
+/* ============================================================
+   Derived tokens — text steps, status hues, translucent fills and
+   shadows that the palette above can't express directly. Everything
+   in this block is mixed from the palette variables, so the block
+   above stays the only place raw colours are written down.
+   (The three status hues are the one addition that can't be mixed
+   out of black/cream/orange — they are dark-theme tuned and kept
+   here so components still never see a literal.)
+   ============================================================ */
+:root {
+  /* Text hierarchy: cream at descending strength over the dark ground. */
+  --ink-soft: color-mix(in srgb, var(--foreground) 72%, transparent);
+  --ink-muted: color-mix(in srgb, var(--foreground) 60%, transparent);
+  --ink-faint: color-mix(in srgb, var(--foreground) 38%, transparent);
+
+  /* Wells & active tints: visible against BOTH --background and --surface. */
+  --surface-subtle: color-mix(in srgb, var(--surface) 55%, var(--background));
+  --wash: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  /* A border that still reads when it sits on a --surface panel. */
+  --border-strong: color-mix(in srgb, var(--border) 60%, var(--foreground));
+
+  /* Status — approvals stay semantically green/amber/red.
+     `.bg` = translucent chip fill; `.solid` = fill carrying --primary-foreground. */
+  --success: #34d399;
+  --success-bg: color-mix(in srgb, var(--success) 15%, transparent);
+  --success-solid: #15803d;
+  --pending: #fbbf24;
+  --pending-bg: color-mix(in srgb, var(--pending) 15%, transparent);
+  --pending-solid: #a16207;
+  --danger: #ff6b6b;
+  --danger-bg: color-mix(in srgb, var(--danger) 15%, transparent);
+  --danger-solid: #c62828;
+  --info-bg: color-mix(in srgb, var(--primary) 15%, transparent);
+
+  /* Depth: --background (black) at low alpha — shadows only read
+     where panels are lighter than the page, e.g. under cards. */
+  --shadow-card: 0 1px 2px color-mix(in srgb, var(--background) 55%, transparent),
+    0 1px 3px color-mix(in srgb, var(--background) 40%, transparent);
+  --shadow-nav: 0 -2px 16px color-mix(in srgb, var(--background) 70%, transparent);
+  --shadow-pop: 0 8px 28px color-mix(in srgb, var(--background) 80%, transparent);
+  --shadow-glow: 0 8px 20px color-mix(in srgb, var(--primary) 28%, transparent);
+  --shadow-header: 0 6px 12px -10px color-mix(in srgb, var(--background) 85%, transparent);
+}
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #F4F2FA;
-  color: #1A1A2E;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;               /* Element Type Baseline — feed body */
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: var(--background);
+  color: var(--foreground);
   /* Status bar is set to non-overlay (see src/lib/nativeShell.js), so this
      is a small belt-and-braces cushion for devices/WebViews where that
      doesn't apply, plus it protects the very top/bottom of scrollable
@@ -12,4 +124,18 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 button { cursor: pointer; font-family: inherit; }
-input, select { font-family: inherit; }
+input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+
+/* Money and counts stay aligned in columns and read as data, not prose. */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* The sync banner's spinner. */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Keyboard users get a visible ring; pointer users don't. */
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 6px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
