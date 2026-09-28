@@ -35,9 +35,13 @@ export async function runSync() {
       try {
         // local_id has a unique constraint in Postgres, so upserting on
         // it makes retries (same row synced twice) safe and idempotent.
+        // Only send real table columns. The local copy carries client-only
+        // fields (e.g. `pending`) that don't exist in Postgres — PostgREST
+        // rejects the whole request with a 400 if any unknown column is present.
+        const { pending, ...columns } = payload
         const { error } = await supabase
           .from(table)
-          .upsert({ ...payload, local_id }, { onConflict: 'local_id' })
+          .upsert({ ...columns, local_id }, { onConflict: 'local_id' })
 
         if (error) throw error
         await clearSyncedRow(local_id)
