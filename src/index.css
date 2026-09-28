@@ -139,3 +139,40 @@ input, select, textarea { font-family: inherit; font-size: inherit; color: inher
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
+* {
+  scrollbar-width: none;    /* standard: Firefox, modern Chromium/Safari */
+  -ms-overflow-style: none; /* legacy: IE / old Edge */
+}
+
+*::-webkit-scrollbar,
+*::-webkit-scrollbar-track,
+*::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-corner {
+  display: none;
+  width: 0;
+  height: 0;
+  background: transparent;
+}
+
+/* --- Hide the spinner/stepper arrows on number inputs ----------
+   - WebKit/Blink (Chrome, Safari, Android WebView, iOS WKWebView)
+     render the arrows as the `::-outer-spin-button` /
+     `::-inner-spin-button` pseudo-elements; neutralising
+     `-webkit-appearance` on them removes the control while the
+     input still accepts typed digits and arrow keys.
+   - Firefox hides them with `-moz-appearance: textfield`, and the
+     unprefixed `appearance: textfield` covers engines that only
+     implement the standard property. */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+
