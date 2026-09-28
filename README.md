@@ -45,6 +45,82 @@ npm run cap:sync
 npm run cap:android   # opens Android Studio
 ```
 
+## 3b. Release: a signed production APK / AAB
+
+```bash
+npm run release
+```
+
+That single command is the whole pipeline. It is idempotent, so run it as
+often as you like — every step is either a no-op or a fix-up:
+
+| Step | What it does |
+| --- | --- |
+| 1 | Checks for JDK 17+ and the Android SDK, and installs `platforms;android-35` / `build-tools;35.0.0` if they are missing (licences auto-accepted). |
+| 2 | Runs `npx cap add android` if `android/` is missing (the folder is git-ignored, so a fresh clone has none). |
+| 3 | Pins the toolchain: Gradle 8.14.3, AGP 8.13.0, `compileSdk`/`targetSdk` 35, 2 GB Gradle heap. |
+| 4 | Wires a `signingConfigs.release` block into `android/app/build.gradle` (marker-guarded, applied once). |
+| 5 | Creates `signing/release.keystore` on first run and reuses it forever after. |
+| 6-7 | `npm run build` (production Vite build, reads `.env`), then `npx cap sync android`. |
+| 8 | `./gradlew clean assembleRelease bundleRelease`. |
+| 9 | Verifies the signature with `apksigner`, copies the artifacts to `release/`, writes `release/SHA256SUMS.txt`. |
+
+Output lands in `release/`:
+
+```
+release/barbershop-0.1.0-1790589258.apk   # adb install -r / direct distribution
+release/barbershop-0.1.0-1790589258.aab   # upload this to the Play Console
+release/SHA256SUMS.txt
+```
+
+**Version numbers are automatic.** `versionName` comes from `package.json`;
+`versionCode` is the current Unix timestamp, so it always increases and two
+releases can never collide. Play requires a strictly increasing
+`versionCode` per upload, and you never have to remember to bump a number.
+
+**The keystore.** `signing/` holds `release.keystore` (PKCS12, RSA 2048,
+alias `release`, 27-year validity) and `keystore.properties` (the
+passwords). It is git-ignored, and it lives *outside* `android/` on purpose
+so `npx cap add android` can never delete it.
+
+> **Back up `signing/` somewhere private and permanent.** The signing key
+> must be byte-for-byte identical for the lifetime of the app. Lose it, and
+> you can no longer update the app on devices that already installed it, nor
+> upload updates to the Play Console.
+
+To use a key you already have (for example your Play upload key), point the
+release at it instead of letting it generate one:
+
+```bash
+RELEASE_KEYSTORE_FILE=/secure/path/upload.jks \
+RELEASE_KEYSTORE_PASSWORD=... \
+RELEASE_KEY_PASSWORD=... \
+RELEASE_KEY_ALIAS=upload \
+npm run release
+```
+
+Other switches:
+
+```bash
+npm run release -- --dry-run        # steps 1-5 only: validate the setup, build nothing
+RELEASE_TARGETS=apk npm run release # skip the AAB (faster; direct-install builds only)
+```
+
+`--dry-run` is the quickest way to see whether this machine can build, and it
+never touches your keystore beyond reporting what it would do.
+
+**Deploying the result.**
+
+```bash
+adb install -r release/barbershop-0.1.0-1790589258.apk   # a device or emulator
+```
+
+For the Play Console, upload the `.aab`, then enrol in Play App Signing.
+Keep the upload key safe: after enrolling, the key you enrolled with cannot
+be used to sign further updates if it is ever exposed.
+
+**iOS.** Not covered here — `npx cap add ios` + Xcode signing, as usual.
+
 ## 4. First-time setup after deploying
 
 - Sign up as the owner from the app (`OwnerLogin` screen — phone +

@@ -3,3 +3,11 @@ android/
 ios/
 .DS_Store
 node_modules/
+
+# Release signing material: the keystore and its passwords must never be
+# committed. Back signing/ up somewhere safe instead — losing it means the
+# published app can no longer be updated.
+signing/
+
+# Build artifacts produced by `npm run release`
+release/
