@@ -37,7 +37,7 @@ export default function Services() {
 
   return (
     <Screen>
-      <div style={{ ...type.screen, color: ink.strong, marginBottom: 12 }}>Services</div>
+      <div style={{ ...type.section, color: ink.strong, marginBottom: 12 }}>Services</div>
 
       <Card style={{ marginBottom: 14 }}>
         <div style={{ ...type.handle, color: ink.strong, marginBottom: 10 }}>New service</div>
@@ -48,7 +48,7 @@ export default function Services() {
             placeholder="e.g. Hair & Beard Cut"
           />
         </Field>
-        <Field label="Default price (KES)" hint="Optional — you can still type a different amount when recording.">
+        <Field label="Default price (KES)" hint="Optional You can still type a different amount when recording.">
           <Input
             type="number"
             inputMode="decimal"
@@ -64,7 +64,7 @@ export default function Services() {
       </Card>
 
       <div style={{ ...type.metaSm, color: ink.muted, letterSpacing: '0.02em', marginBottom: 6 }}>
-        YOUR PRICE LIST ({services.length})
+        Services List ({services.length})
       </div>
 
       <div style={{ background: surface.card, border: `1px solid ${line.hair}`, borderRadius: radius.lg, overflow: 'hidden' }}>
@@ -79,7 +79,7 @@ export default function Services() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
                 <Tag size={15} color={ink.muted} strokeWidth={2.2} aria-hidden style={{ flexShrink: 0 }} />
-                <div style={{ ...type.body, color: ink.strong, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ ...type.body, color: ink.strong, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',  textTransform: 'capitalize' }}>
                   {s.name}
                 </div>
               </div>

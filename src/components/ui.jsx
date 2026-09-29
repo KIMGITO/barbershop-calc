@@ -91,7 +91,7 @@ export function Field({ label, id, children, hint }) {
     <div style={{ marginBottom: 12 }}>
       {label && <Label htmlFor={id}>{label}</Label>}
       {children}
-      {hint && <div style={{ ...type.metaSm, color: ink.muted, marginTop: 4 }}>{hint}</div>}
+      {hint && <div style={{ ...type.metaSm, color: ink.muted, fontSize:9, marginTop: 2 }}>{hint}</div>}
     </div>
   )
 }
@@ -172,7 +172,7 @@ export function IconTile({ icon: Icon, tone = 'wash', size = 36, style }) {
     <div
       aria-hidden
       style={{
-        width: size, height: size, borderRadius: radius.md,
+        width: size, height: size, borderRadius: radius.pill,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: t.bg, color: t.fg, flexShrink: 0,
         ...style,

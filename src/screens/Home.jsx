@@ -66,6 +66,7 @@ export default function Home() {
       ? [{ label: 'My earnings', path: `/provider/${me.id}`, icon: User }]
       : []),
     { label: 'Totals', path: '/dashboard', icon: ChartNoAxesColumn },
+    { label: 'Add provider', path: '/add-provider', icon: UserPlus },
   ];
 
   return (
@@ -147,10 +148,9 @@ export default function Home() {
       )}
 
       <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-        {/* Column 1: Large Earned today (50% width, full height) */}
         <div style={{ flex: 1, display: 'flex' }}>
           <StatPill
-            label="Earned today"
+            label="Earned Today"
             value={day.earned}
             style={{ flex: 1, height: '100%' }}
             big

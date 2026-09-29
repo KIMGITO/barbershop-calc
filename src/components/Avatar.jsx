@@ -1,19 +1,26 @@
-import { useState } from 'react'
-import { ink, line, radius, surface, type } from '../theme'
+import { useState } from 'react';
+import { ink, line, radius, surface, type } from '../theme';
 
 function getInitials(name = '') {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export default function Avatar({ src, name = '', size = 40, square = false, style, ...rest }) {
-  const [imgError, setImgError] = useState(false)
-  const initials = getInitials(name)
+export default function Avatar({
+  src,
+  name = '',
+  size = 40,
+  square = false,
+  style,
+  ...rest
+}) {
+  const [imgError, setImgError] = useState(false);
+  const initials = getInitials(name);
 
-  const borderRadius = square ? radius.md : '50%'
-  const hasImage = src && !imgError
+  const borderRadius = square ? radius.md : '50%';
+  const hasImage = src && !imgError;
 
   if (hasImage) {
     return (
@@ -27,13 +34,13 @@ export default function Avatar({ src, name = '', size = 40, square = false, styl
           borderRadius,
           objectFit: 'cover',
           border: `1px solid ${line.hair}`,
-          background: surface.subtle,
+          background: 'var(--gradient-dark-warm)',
           flexShrink: 0,
           ...style,
         }}
         {...rest}
       />
-    )
+    );
   }
 
   return (
@@ -46,7 +53,8 @@ export default function Avatar({ src, name = '', size = 40, square = false, styl
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface-subtle) 100%)',
+        background: 'var(--gradient-dark-warm)',
+
         color: ink.strong,
         border: `1px solid ${line.hair}`,
         fontWeight: 700,
@@ -60,5 +68,5 @@ export default function Avatar({ src, name = '', size = 40, square = false, styl
     >
       {initials}
     </div>
-  )
+  );
 }

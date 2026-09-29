@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Check, X } from 'lucide-react'
 import { useShopStore } from '../store/useShopStore'
 import { brand, ink, line, shadow, surface, type, radius, status } from '../theme'
 
@@ -21,48 +22,76 @@ export default function SelfRecordToggle({ provider }) {
     }
   }
 
+  const firstName = provider?.name ? provider.name.split(' ')[0] : 'Provider'
+
   return (
     <div
       style={{
-        background: surface.card,
+        background: surface.subtle,
         border: `1px solid ${line.hair}`,
-        borderRadius: radius.lg,
-        padding: '14px',
-        margin: '16px 0',
+        borderRadius: radius.md,
+        padding: '10px 12px',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ ...type.handle, color: ink.strong }}>Let {provider.name.split(' ')[0]} record services</div>
-          <div style={{ ...type.meta, color: ink.muted, marginTop: 2 }}>
-            {on ? 'On — their records reach you for approval first.' : 'Off — only you can add earnings.'}
+          <div style={{ ...type.metaSm, color: ink.strong, fontWeight: 600, textTransform: 'capitalize' }}>
+            Let {firstName.toLowerCase()} record own services
+          </div>
+          <div style={{ ...type.metaSm, color: ink.muted, marginTop: 1, fontSize: 9 }}>
+            {on ? 'On  records reach you for approval first.' : 'Off  only you can add earnings.'}
           </div>
         </div>
+
         <button
           onClick={flip}
           disabled={busy}
+          type="button"
           role="switch"
           aria-checked={on}
-          aria-label={`Let ${provider.name.split(' ')[0]} record services`}
+          aria-label={`Let ${firstName} record services`}
           style={{
-            width: 50, height: 30, borderRadius: 999, border: 'none', padding: 3, flexShrink: 0,
+            width: 38,
+            height: 22,
+            borderRadius: radius.pill,
+            border: 'none',
+            padding: 2,
+            flexShrink: 0,
             background: on ? brand.primary : line.hair,
-            opacity: busy ? 0.6 : 1, transition: 'background 150ms',
-            display: 'flex', alignItems: 'center',
+            opacity: busy ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'background 150ms ease',
           }}
         >
           <span
             aria-hidden
             style={{
-              width: 24, height: 24, borderRadius: '50%', background: brand.white,
-              transform: on ? 'translateX(20px)' : 'translateX(0)', transition: 'transform 150ms',
+              width: 18,
+              height: 18,
+              borderRadius: '50%',
+              background: brand.white,
+              transform: on ? 'translateX(16px)' : 'translateX(0)',
+              transition: 'transform 150ms ease',
               boxShadow: shadow.card,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
-          />
+          >
+            {on ? (
+              <Check size={11} strokeWidth={3.5} style={{ color: brand.primary }} />
+            ) : (
+              <X size={11} strokeWidth={3.5} style={{ color: ink.muted }} />
+            )}
+          </span>
         </button>
       </div>
+
       {error && (
-        <div role="alert" style={{ ...type.meta, color: status.danger.fg, marginTop: 8 }}>{error}</div>
+        <div role="alert" style={{ ...type.metaSm, color: status.danger.fg, marginTop: 6 }}>
+          {error}
+        </div>
       )}
     </div>
   )

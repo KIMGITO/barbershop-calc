@@ -6,7 +6,7 @@ export default function StatPill({ label, value, accent, big = false }) {
       style={{
         ...type.metaSm,
         color: ink.strong,
-        background: big ? 'var(--gradient-primary)' : surface.card,
+        background:  surface.card,
         flex: 1,
         minWidth: 0,
         display: 'flex',
@@ -21,7 +21,7 @@ export default function StatPill({ label, value, accent, big = false }) {
     >
       <div
         style={{
-          ...(big ? type.amount : type.metaSm),
+          ...(big ? type.handle : type.metaSm),
           color: ink.muted,
           marginBottom: 2,
           overflow: 'hidden',
