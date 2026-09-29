@@ -97,7 +97,7 @@ function RoleChoice() {
   if (!exists) return <AdminOnboarding mode="setup" />
 
   if (choice === 'owner') return <AdminOnboarding mode="resume" onBack={() => setChoice(null)} />
-  if (choice === 'provider') return <ProviderClaim />
+  if (choice === 'provider') return <ProviderClaim  onBack={() => setChoice(null)} />
   return (
     <div style={{ padding: 24, minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 12 }}>
       <div style={{ ...type.display, color: ink.strong, marginBottom: 8 }}>Barbershop</div>

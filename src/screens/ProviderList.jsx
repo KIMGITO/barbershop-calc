@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { UserPlus, Users } from 'lucide-react'
 import { useShopStore } from '../store/useShopStore'
 import ProviderCard from '../components/ProviderCard'
-import { Button, EmptyState } from '../components/ui'
+import { Button, EmptyState, Screen } from '../components/ui'
 import { ink, type } from '../theme'
 
 export default function ProviderList() {
@@ -22,8 +22,8 @@ export default function ProviderList() {
   }, [shopId])
 
   return (
-    <div style={{ padding: 16, paddingBottom: 90 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+    <Screen>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <div style={{ ...type.screen, color: ink.strong }}>Service Providers</div>
         <Button size="sm" icon={UserPlus} onClick={() => navigate('/add-provider')}>
           Add Provider
@@ -39,6 +39,6 @@ export default function ProviderList() {
           No providers yet. Add one to get started.
         </EmptyState>
       )}
-    </div>
+    </Screen>
   )
 }

@@ -7,7 +7,7 @@ import { ink, surface, type, primaryDeep } from '../theme'
 // the owner registered them with; if it matches an unclaimed record, this
 // device is permanently bound to that provider (see claimProviderAccount).
 // There is no OTP — this only works once per provider record.
-export default function ProviderClaim() {
+export default function ProviderClaim({ onBack }) {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -29,25 +29,18 @@ export default function ProviderClaim() {
     <div style={{ minHeight: '100vh', background: surface.page, display: 'flex', flexDirection: 'column' }}>
       <div
         style={{
-          background: surface.card,
+          background: 'var(--gradient-dark-warm)',  textAlign: 'center',
           padding: 'calc(40px + env(safe-area-inset-top, 0px)) 24px 28px',
           borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
         }}
       >
-        <div
-          style={{
-            color: primaryDeep, ...type.meta, fontWeight: 700,
-            textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14,
-          }}
-        >
-          For service providers
-        </div>
-        <h1 style={{ ...type.hook, color: ink.strong, margin: 0 }}>Welcome</h1>
+       
+        <h1 style={{ ...type.minHeight, color: ink.strong, margin: 0 }}>Welcome</h1>
       </div>
 
-      <Screen style={{ paddingTop: 24, flex: 1 }}>
-        <p style={{ ...type.body, color: ink.soft, lineHeight: 1.5, margin: '0 0 24px' }}>
-          Enter the phone number the owner registered you with. This only needs doing once — this device stays signed in afterwards.
+      <Screen style={{ paddingTop: 60, flex: 1 }}>
+        <p style={{ ...type.comment, color: ink.soft, lineHeight: 1.5, margin: '0 0 24px' }}>
+          Enter the phone number the owner registered you with.
         </p>
 
         <Field label="Phone number" id="c-phone" hint="Ask your owner if you're not sure which number they used.">
@@ -62,6 +55,15 @@ export default function ProviderClaim() {
         <Button onClick={submit} disabled={loading || !phone.trim()} full>
           {loading ? 'Verifying…' : 'Continue'}
         </Button>
+
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{ display: 'block', width: '100%', background: 'none', border: 'none', color: ink.muted, ...type.meta, padding: 8 }}
+          >
+            Back
+          </button>
+        )}
       </Screen>
     </div>
   )

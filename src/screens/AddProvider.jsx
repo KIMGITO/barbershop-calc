@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useShopStore } from '../store/useShopStore'
 import { Screen, Button, Field, Input, ErrorText } from '../components/ui'
+import Avatar from '../components/Avatar'
 import { type, ink, surface } from '../theme'
 
 export default function AddProvider() {
@@ -53,11 +54,7 @@ export default function AddProvider() {
       </Field>
 
       {photoUrl && (
-        <img
-          src={photoUrl}
-          alt=""
-          style={{ width: 56, height: 56, borderRadius: 16, objectFit: 'cover', marginBottom: 16, background: surface.subtle }}
-        />
+        <Avatar src={photoUrl} name={name || 'Provider'} size={48} square style={{ marginBottom: 12 }} />
       )}
 
       <ErrorText>{error}</ErrorText>

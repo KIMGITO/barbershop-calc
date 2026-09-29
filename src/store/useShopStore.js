@@ -8,6 +8,13 @@ import {
   getEarningsForProvider,
   addPayoutLocal,
   getPayoutsForProvider,
+  updateEarningLocal,
+  deleteEarningLocal,
+  updatePayoutLocal,
+  deletePayoutLocal,
+  replaceCachedServices,
+  getCachedServices,
+  patchRowLocal,
 } from '../lib/db'
 import { runSync, pullRemote as pullRemoteData } from '../lib/sync'
 import { useNetworkStore } from './useNetworkStore'
@@ -124,15 +131,23 @@ export const useShopStore = create((set, get) => ({
     return data
   },
 
+  // Read-through, like loadProviders: the server refreshes the cache when
+  // there's signal, but the list the UI renders is always the local one, so
+  // the price list still opens with no connection.
   loadServices: async (shopId) => {
-    const { data, error } = await supabase
-      .from('services')
-      .select('*')
-      .eq('shop_id', shopId)
-      .eq('active', true)
-      .order('name')
-    if (!error && data) set({ services: data })
-    return data || []
+    if (!shopId) return []
+    if (navigator.onLine) {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .eq('shop_id', shopId)
+        .eq('active', true)
+        .order('name')
+      if (!error && data) await replaceCachedServices(shopId, data)
+    }
+    const cached = await getCachedServices(shopId)
+    set({ services: cached })
+    return cached
   },
 
   addService: async ({ name, defaultPrice }) => {
@@ -187,6 +202,100 @@ export const useShopStore = create((set, get) => ({
     await addPayoutLocal({ shop_id: shopId, provider_id: providerId, amount, method, mpesa_code: mpesaCode, note })
     await get().loadProviderLogs(providerId)
     runSync()
+  },
+
+  // Edits an existing earning/payout. Like the add actions this is
+  // offline-first: the local row changes immediately and the change is queued,
+  // so the admin sees the correction right away even with no signal.
+  updateEarning: async ({ localId, providerId, serviceId, services, amount, note }) => {
+    await updateEarningLocal(localId, {
+      service_id: serviceId ?? null,
+      services: services ?? [],
+      amount,
+      note: note ?? null,
+    })
+    await get().loadProviderLogs(providerId)
+    runSync()
+  },
+
+  updatePayout: async ({ localId, providerId, amount, method, mpesaCode, note }) => {
+    await updatePayoutLocal(localId, {
+      amount,
+      method,
+      mpesa_code: mpesaCode ?? null,
+      note: note ?? null,
+    })
+    await get().loadProviderLogs(providerId)
+    runSync()
+  },
+
+  // Deletes are soft until the server confirms (see deleteEarningLocal), so the
+  // row vanishes from the list immediately and disappears for good after sync.
+  deleteEarning: async ({ localId, providerId }) => {
+    await deleteEarningLocal(localId)
+    await get().loadProviderLogs(providerId)
+    runSync()
+  },
+
+  deletePayout: async ({ localId, providerId }) => {
+    await deletePayoutLocal(localId)
+    await get().loadProviderLogs(providerId)
+    runSync()
+  },
+
+  // The service catalog and the team roster are queued like any other write,
+  // so an owner editing them with no signal sees the change immediately and it
+  // uploads when the connection returns (see patchRowLocal).
+  updateService: async ({ id, name, defaultPrice }) => {
+    const patch = { name, default_price: defaultPrice || null }
+    const row = await patchRowLocal('services', id, patch)
+    if (!row) throw new Error('That service is no longer on the list.')
+    set((s) => ({
+      services: s.services
+        .map((x) => (x.id === id ? row : x))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    }))
+    runSync()
+    return row
+  },
+
+  // `active` is soft-delete: existing earnings reference the service, so the
+  // row is deactivated rather than removed and history keeps resolving.
+  deleteService: async (id) => {
+    const row = await patchRowLocal('services', id, { active: false })
+    if (!row) throw new Error('That service is no longer on the list.')
+    set((s) => ({ services: s.services.filter((x) => x.id !== id) }))
+    runSync()
+    return row
+  },
+
+  updateProvider: async ({ id, name, phone, roleTitle, canSelfRecord }) => {
+    const patch = {}
+    if (name !== undefined) patch.name = name
+    // service_providers.phone is NOT NULL (and unique per shop) — the provider
+    // claims their device with it — so an emptied field keeps the old number
+    // rather than trying to write null, which the server would reject.
+    if (phone) patch.phone = phone
+    if (roleTitle !== undefined) patch.role_title = roleTitle || 'Service Provider'
+    if (canSelfRecord !== undefined) patch.can_self_record = canSelfRecord
+
+    const row = await patchRowLocal('service_providers', id, patch)
+    if (!row) throw new Error('That provider is no longer on the list.')
+    set((s) => ({ providers: s.providers.map((p) => (p.id === id ? row : p)) }))
+    runSync()
+    return row
+  },
+
+  // Providers are soft-deleted for the same reason services are: earnings and
+  // payouts point at them, and that history must survive the removal. The
+  // database refuses any new earning or payout against an inactive provider,
+  // so a stale device can never add to a balance after the fact.
+  deleteProvider: async (id) => {
+    const row = await patchRowLocal('service_providers', id, { active: false })
+    if (!row) throw new Error('That provider is no longer on the list.')
+    set((s) => ({ providers: s.providers.filter((p) => p.id !== id) }))
+    runSync()
+    return row
   },
 
   // Derived totals for one provider: earned per period, paid out, balance owed.

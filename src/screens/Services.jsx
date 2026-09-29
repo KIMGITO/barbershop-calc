@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { Plus, Scissors, Tag } from 'lucide-react'
 import { useShopStore } from '../store/useShopStore'
 import { Screen, Card, Button, Field, Input, ErrorText, EmptyState } from '../components/ui'
-import { ink, type, primaryDeep } from '../theme'
+import RecordActions from '../components/RecordActions'
+import { ink, type, primaryDeep, line, surface, radius } from '../theme'
 
 export default function Services() {
   const shopId = useShopStore((s) => s.shopId)
@@ -36,10 +37,10 @@ export default function Services() {
 
   return (
     <Screen>
-      <div style={{ ...type.screen, color: ink.strong, marginBottom: 16 }}>Services</div>
+      <div style={{ ...type.screen, color: ink.strong, marginBottom: 12 }}>Services</div>
 
-      <Card style={{ marginBottom: 20 }}>
-        <div style={{ ...type.handle, color: ink.strong, marginBottom: 12 }}>New service</div>
+      <Card style={{ marginBottom: 14 }}>
+        <div style={{ ...type.handle, color: ink.strong, marginBottom: 10 }}>New service</div>
         <Field label="Service name">
           <Input
             value={name}
@@ -62,29 +63,36 @@ export default function Services() {
         </Button>
       </Card>
 
-      <div style={{ ...type.metaSm, color: ink.muted, letterSpacing: '0.02em', marginBottom: 8 }}>
+      <div style={{ ...type.metaSm, color: ink.muted, letterSpacing: '0.02em', marginBottom: 6 }}>
         YOUR PRICE LIST ({services.length})
       </div>
 
-      {services.map((s) => (
-        <Card
-          key={s.id}
-          style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            padding: '12px 14px', marginBottom: 8,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-            <Tag size={16} color={ink.muted} strokeWidth={2.2} aria-hidden style={{ flexShrink: 0 }} />
-            <div style={{ ...type.body, color: ink.strong, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {s.name}
+      <div style={{ background: surface.card, border: `1px solid ${line.hair}`, borderRadius: radius.lg, overflow: 'hidden' }}>
+        {services.map((s, idx) => (
+          <div
+            key={s.id}
+            style={{
+              padding: '10px 12px',
+              borderBottom: idx === services.length - 1 ? 'none' : `1px solid ${line.hair}`,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <Tag size={15} color={ink.muted} strokeWidth={2.2} aria-hidden style={{ flexShrink: 0 }} />
+                <div style={{ ...type.body, color: ink.strong, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {s.name}
+                </div>
+              </div>
+              <div className="tnum" style={{ ...type.handle, color: primaryDeep, flexShrink: 0 }}>
+                {s.default_price ? `KES ${Number(s.default_price).toLocaleString()}` : '—'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+              <RecordActions record={{ kind: 'service', id: s.id }} data={s} />
             </div>
           </div>
-          <div className="tnum" style={{ ...type.handle, color: primaryDeep, flexShrink: 0 }}>
-            {s.default_price ? `KES ${Number(s.default_price).toLocaleString()}` : '—'}
-          </div>
-        </Card>
-      ))}
+        ))}
+      </div>
 
       {services.length === 0 && (
         <EmptyState icon={Scissors}>

@@ -43,7 +43,7 @@ function RequestCard({ r, providerName, services }) {
   const reject = () => run(() => rejectRequest({ id: r.id, reason }))
 
   return (
-    <Card style={{ marginBottom: 10 }}>
+    <Card style={{ marginBottom: 8, padding: '10px 12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ ...type.handle, color: ink.strong }}>{providerName}</div>
@@ -55,25 +55,21 @@ function RequestCard({ r, providerName, services }) {
       </div>
 
       {(r.services || []).length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
-          {r.services.map((s, i) => (
-            <span key={i} style={{ background: surface.wash, color: primaryDeep, borderRadius: 8, padding: '3px 8px', ...type.metaSm, fontWeight: 600 }}>
-              {s.name}{s.price ? ` · ${Number(s.price).toLocaleString()}` : ''}
-            </span>
-          ))}
+        <div style={{ ...type.metaSm, color: ink.soft, marginTop: 4 }}>
+          {r.services.map((s) => `${s.name}${s.price ? ` (${Number(s.price).toLocaleString()})` : ''}`).join(' · ')}
         </div>
       )}
-      {r.note && <div style={{ ...type.meta, color: ink.soft, marginTop: 8, fontStyle: 'italic' }}>“{r.note}”</div>}
+      {r.note && <div style={{ ...type.meta, color: ink.soft, marginTop: 4, fontStyle: 'italic' }}>“{r.note}”</div>}
 
       {r.status !== 'pending' && (
-        <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <RequestStatus status={r.status} />
           {r.review_note && <span style={{ ...type.meta, color: ink.soft }}>{r.review_note}</span>}
         </div>
       )}
 
       {r.status === 'pending' && mode === 'view' && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+        <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
           <Button size="sm" full icon={Check} onClick={approveAsIs} disabled={busy}
             style={{ background: tone.success.fg, borderColor: tone.success.fg }}>
             Approve
@@ -89,11 +85,11 @@ function RequestCard({ r, providerName, services }) {
       )}
 
       {r.status === 'pending' && mode === 'edit' && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${line.dash}` }}>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${line.dash}` }}>
           <div style={{ ...type.metaSm, color: ink.muted, marginBottom: 2 }}>
-            Approving with changes — the provider submitted {money(r.amount)}.
+            Approving with changes — provider submitted {money(r.amount)}.
           </div>
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 8 }}>
             <ServicePicker services={services} selected={selected} onToggle={toggle} />
           </div>
           <Label>Amount (KES)</Label>
@@ -102,11 +98,11 @@ function RequestCard({ r, providerName, services }) {
             value={amount}
             onChange={(e) => { setAmount(e.target.value); setManual(true) }}
           />
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 8 }}>
             <Label>Note</Label>
             <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="What you changed, and why" />
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
             <Button size="sm" full icon={Check} onClick={approveEdited} disabled={busy}>
               Approve with changes
             </Button>
@@ -118,14 +114,14 @@ function RequestCard({ r, providerName, services }) {
       )}
 
       {r.status === 'pending' && mode === 'reject' && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px dashed ${line.dash}` }}>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${line.dash}` }}>
           <Label>Reason</Label>
           <Input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             placeholder="Optional — the provider sees this"
           />
-          <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+          <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
             <Button size="sm" full variant="danger" icon={X} onClick={reject} disabled={busy}>
               Reject
             </Button>
@@ -136,12 +132,11 @@ function RequestCard({ r, providerName, services }) {
         </div>
       )}
 
-      <ErrorText style={{ marginTop: 10, marginBottom: 0 }}>{error}</ErrorText>
+      <ErrorText style={{ marginTop: 8, marginBottom: 0 }}>{error}</ErrorText>
     </Card>
   )
 }
 
-// Admin inbox: provider-submitted records waiting for review.
 export default function Requests() {
   const shopId = useShopStore((s) => s.shopId)
   const requests = useShopStore((s) => s.requests)
@@ -166,12 +161,12 @@ export default function Requests() {
 
   return (
     <Screen>
-      <div style={{ ...type.screen, color: ink.strong, marginBottom: 4 }}>Approvals</div>
-      <div style={{ ...type.body, color: ink.soft, marginBottom: 14 }}>
+      <div style={{ ...type.screen, color: ink.strong, marginBottom: 2 }}>Approvals</div>
+      <div style={{ ...type.body, color: ink.soft, marginBottom: 12 }}>
         Services your team recorded themselves. Nothing counts until you approve it.
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
         <Chip active={tab === 'pending'} onClick={() => setTab('pending')}>
           Waiting ({pending.length})
         </Chip>

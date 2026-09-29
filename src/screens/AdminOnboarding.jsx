@@ -38,7 +38,7 @@ export default function AdminOnboarding({ mode, onBack }) {
       {/* Hook band: the brand's oversized headline, on a raised panel. */}
       <div
         style={{
-          background: surface.card,
+         background: 'var(--gradient-dark-warm)',  textAlign: 'center',
           padding: 'calc(32px + env(safe-area-inset-top, 0px)) 24px 28px',
           borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
         }}
@@ -46,20 +46,19 @@ export default function AdminOnboarding({ mode, onBack }) {
         <div
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 7,
-            color: primaryDeep, ...type.meta, fontWeight: 700,
+            color: primaryDeep, ...type.name,
             textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 14,
           }}
         >
-          <Scissors size={14} strokeWidth={2.5} aria-hidden />
-          Barbershop
+          
         </div>
-        <h1 style={{ ...type.hook, color: ink.strong, margin: 0 }}>{isSetup ? 'Set up your shop' : 'Welcome back'}</h1>
+        <h1 style={{ ...type.h1, color: ink.strong, margin: 0 }}>{isSetup ? 'Set up your account' : 'Welcome back'}</h1>
       </div>
 
       <Screen style={{ paddingTop: 24, flex: 1 }}>
         <p style={{ ...type.body, color: ink.soft, lineHeight: 1.5, margin: '0 0 24px' }}>
           {isSetup
-            ? "You'll be the admin. Your phone number is your identity — there's no password to remember."
+            ? "You'll be the admin of this shop."
             : 'Enter the phone number you registered with to continue on this device.'}
         </p>
 
@@ -75,7 +74,7 @@ export default function AdminOnboarding({ mode, onBack }) {
           </>
         )}
 
-        <Field label="Phone number" id="a-phone" hint="Used to sign in on any device. No SMS codes.">
+        <Field label="Phone number" id="a-phone" hint="Used to sign in on any device.">
           <Input
             id="a-phone" value={phone} onChange={(e) => setPhone(e.target.value)}
             placeholder="2547XXXXXXXX" inputMode="tel" autoComplete="tel" big

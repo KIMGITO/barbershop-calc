@@ -11,24 +11,35 @@
 import { openDB } from 'idb'
 
 const DB_NAME = 'barbershop-db'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 export async function getDB() {
   return openDB(DB_NAME, DB_VERSION, {
-    upgrade(db) {
-      const providers = db.createObjectStore('providers', { keyPath: 'id' })
-      providers.createIndex('shop_id', 'shop_id')
+    // Split by version so an existing install is migrated in place: the v1
+    // stores are only created on a fresh database, and v2 adds to them.
+    upgrade(db, oldVersion) {
+      if (oldVersion < 1) {
+        const providers = db.createObjectStore('providers', { keyPath: 'id' })
+        providers.createIndex('shop_id', 'shop_id')
 
-      const earnings = db.createObjectStore('earnings', { keyPath: 'local_id' })
-      earnings.createIndex('provider_id', 'provider_id')
-      earnings.createIndex('created_at', 'created_at')
+        const earnings = db.createObjectStore('earnings', { keyPath: 'local_id' })
+        earnings.createIndex('provider_id', 'provider_id')
+        earnings.createIndex('created_at', 'created_at')
 
-      const payouts = db.createObjectStore('payouts', { keyPath: 'local_id' })
-      payouts.createIndex('provider_id', 'provider_id')
-      payouts.createIndex('created_at', 'created_at')
+        const payouts = db.createObjectStore('payouts', { keyPath: 'local_id' })
+        payouts.createIndex('provider_id', 'provider_id')
+        payouts.createIndex('created_at', 'created_at')
 
-      db.createObjectStore('sync_queue', { keyPath: 'local_id' })
-      db.createObjectStore('meta', { keyPath: 'key' })
+        db.createObjectStore('sync_queue', { keyPath: 'local_id' })
+        db.createObjectStore('meta', { keyPath: 'key' })
+      }
+
+      // v2: the service catalog is cached, so the price list can be read and
+      // edited with no signal — same treatment providers already had.
+      if (oldVersion < 2) {
+        const services = db.createObjectStore('services', { keyPath: 'id' })
+        services.createIndex('shop_id', 'shop_id')
+      }
     },
   })
 }
@@ -41,13 +52,67 @@ function makeLocalId() {
 export async function cacheProviders(list) {
   const db = await getDB()
   const tx = db.transaction('providers', 'readwrite')
-  await Promise.all(list.map((p) => tx.store.put(p)))
+  for (const p of list) {
+    // A queued edit wins over the server copy until it syncs, or a rename made
+    // offline would flicker back to the old name on the next refresh.
+    const local = await tx.store.get(p.id)
+    if (local?.pending) continue
+    await tx.store.put(p)
+  }
   await tx.done
 }
 
+// --- Services (the price list) ---
+// Replaces this shop's cached catalog with what the server just returned, so a
+// service deactivated on another device disappears here too. A plain upsert
+// would leave the stale row behind forever. Locally-pending rows are left
+// alone — a queued edit outranks the server copy until it syncs.
+export async function replaceCachedServices(shopId, list) {
+  const db = await getDB()
+  const tx = db.transaction('services', 'readwrite')
+  const keep = new Set(list.map((s) => s.id))
+  for (const key of await tx.store.index('shop_id').getAllKeys(shopId)) {
+    if (!keep.has(key)) await tx.store.delete(key)
+  }
+  for (const s of list) {
+    const local = await tx.store.get(s.id)
+    if (local?.pending) continue
+    await tx.store.put(s)
+  }
+  await tx.done
+}
+
+export async function getCachedServices(shopId) {
+  const db = await getDB()
+  const rows = await db.getAllFromIndex('services', 'shop_id', shopId)
+  return rows.filter((s) => s.active !== false).sort((a, b) => a.name.localeCompare(b.name))
+}
+
+// --- Catalog edits (services, providers) ---
+// These rows are seeded on the server, so this device only ever *changes* them,
+// never creates them. That rules out the local_id upsert the earnings/payouts
+// queue uses, so the queue entry is keyed by the row's server id and carries
+// only the changed columns as a 'patch'. Applying a patch twice is a no-op,
+// which is what makes a retry after a dropped response safe.
+export async function patchRowLocal(table, id, patch) {
+  const db = await getDB()
+  const current = await db.get(table, id)
+  if (!current) return null
+  const row = { ...current, ...patch, pending: true }
+  await db.put(table, row)
+  await db.put('sync_queue', { local_id: id, table, op: 'patch', payload: patch })
+  return row
+}
+
+
+// Only active providers. A soft-deleted provider is still cached (so the row
+// keeps its identity if it is ever restored), but it must never be handed back
+// to the UI — otherwise the next offline read resurrects someone the owner
+// removed, and they show up in the team list and the totals again.
 export async function getCachedProviders(shopId) {
   const db = await getDB()
-  return db.getAllFromIndex('providers', 'shop_id', shopId)
+  const rows = await db.getAllFromIndex('providers', 'shop_id', shopId)
+  return rows.filter((p) => p.active !== false)
 }
 
 // --- Earnings ---
@@ -79,7 +144,48 @@ export async function cacheEarning(row) {
 export async function getEarningsForProvider(providerId) {
   const db = await getDB()
   const rows = await db.getAllFromIndex('earnings', 'provider_id', providerId)
-  return rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  return rows
+    .filter((r) => !r.deleted)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+}
+
+// Applies an edit to an earning. Works offline: the row is patched locally
+// straight away and an `update` op is queued for the server. The in-place
+// write is safe even if the row already synced, because the patch is a plain
+// column-level merge rather than a replace.
+export async function updateEarningLocal(localId, patch) {
+  const db = await getDB()
+  const current = await db.get('earnings', localId)
+  if (!current) return null
+  const row = {
+    ...current,
+    ...patch,
+    local_id: localId,
+    deleted: false,
+    pending: true,
+  }
+  await db.put('earnings', row)
+  await db.put('sync_queue', { local_id: localId, table: 'earnings', op: 'update', payload: row })
+  return row
+}
+
+// Soft-deletes an earning: the row is hidden from the UI and a `delete` op is
+// queued, but it is kept on disk until the server confirms. That way the delete
+// survives an offline edit and the row's history stays coherent until sync.
+export async function deleteEarningLocal(localId) {
+  const db = await getDB()
+  const current = await db.get('earnings', localId)
+  if (!current) return null
+  const row = { ...current, deleted: true, pending: true }
+  await db.put('earnings', row)
+  await db.put('sync_queue', { local_id: localId, table: 'earnings', op: 'delete', payload: { ...row, op: 'delete' } })
+  return row
+}
+
+// Called after the server accepts a delete: drop the tombstone for good.
+export async function purgeRow(table, localId) {
+  const db = await getDB()
+  await db.delete(table, localId)
 }
 
 // --- Payouts ---
@@ -104,7 +210,35 @@ export async function addPayoutLocal({ shop_id, provider_id, amount, method, mpe
 export async function getPayoutsForProvider(providerId) {
   const db = await getDB()
   const rows = await db.getAllFromIndex('payouts', 'provider_id', providerId)
-  return rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  return rows
+    .filter((r) => !r.deleted)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+}
+
+export async function updatePayoutLocal(localId, patch) {
+  const db = await getDB()
+  const current = await db.get('payouts', localId)
+  if (!current) return null
+  const row = {
+    ...current,
+    ...patch,
+    local_id: localId,
+    deleted: false,
+    pending: true,
+  }
+  await db.put('payouts', row)
+  await db.put('sync_queue', { local_id: localId, table: 'payouts', op: 'update', payload: row })
+  return row
+}
+
+export async function deletePayoutLocal(localId) {
+  const db = await getDB()
+  const current = await db.get('payouts', localId)
+  if (!current) return null
+  const row = { ...current, deleted: true, pending: true }
+  await db.put('payouts', row)
+  await db.put('sync_queue', { local_id: localId, table: 'payouts', op: 'delete', payload: { ...row, op: 'delete' } })
+  return row
 }
 
 // --- Sync ---

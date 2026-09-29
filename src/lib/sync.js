@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient'
-import { getPendingSyncRows, clearSyncedRow, getPendingSyncCount, getMeta, setMeta, putSyncedRows } from './db'
+import { getPendingSyncRows, clearSyncedRow, purgeRow, getPendingSyncCount, getMeta, setMeta, putSyncedRows } from './db'
 import { useNetworkStore } from '../store/useNetworkStore'
 
 let syncing = false
@@ -32,13 +32,42 @@ export async function runSync() {
     const pending = await getPendingSyncRows()
     for (const row of pending) {
       const { table, payload, local_id } = row
+      // Rows queued before CRUD support carry no `op`; treat those as inserts.
+      const op = row.op || payload?.op || 'insert'
       try {
-        // local_id has a unique constraint in Postgres, so upserting on
-        // it makes retries (same row synced twice) safe and idempotent.
-        // Only send real table columns. The local copy carries client-only
-        // fields (e.g. `pending`) that don't exist in Postgres — PostgREST
-        // rejects the whole request with a 400 if any unknown column is present.
-        const { pending, ...columns } = payload
+        // `pending` and `deleted` are client-only bookkeeping with no column in
+        // Postgres. PostgREST rejects the entire request with a 400 if any
+        // unknown column is present, so they are always stripped.
+        const { pending: _p, deleted: _d, op: _o, ...columns } = payload
+
+        if (op === 'delete') {
+          // Deleting by local_id is idempotent: a row that never reached the
+          // server (created and deleted while offline) simply matches nothing.
+          const { error } = await supabase.from(table).delete().eq('local_id', local_id)
+          if (error) throw error
+          // The tombstone has served its purpose — drop the row so the download
+          // pass can't resurrect it on the next pull, then clear the queue
+          // entry. Both are required: purging without dequeuing would retry
+          // this delete forever and pin the "pending" count above zero.
+          await purgeRow(table, local_id)
+          await clearSyncedRow(local_id)
+          continue
+        }
+
+        if (op === 'patch') {
+          // A catalog row (service, provider) that already exists on the
+          // server, keyed by its server id — there is no local_id to upsert
+          // against, and a plain update is already idempotent, so a retry
+          // after a dropped response just re-applies the same columns.
+          const { error } = await supabase.from(table).update(columns).eq('id', local_id)
+          if (error) throw error
+          await clearSyncedRow(local_id, table)
+          continue
+        }
+
+        // Both 'insert' and 'update' go through an upsert on the unique
+        // local_id. An update of a row that never synced yet must still create
+        // it, and upserting on conflict is idempotent under retry.
         const { error } = await supabase
           .from(table)
           .upsert({ ...columns, local_id }, { onConflict: 'local_id' })

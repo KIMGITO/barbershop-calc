@@ -13,14 +13,13 @@ const KINDS = [
 
 const chip = (active) => ({
   display: 'inline-flex', alignItems: 'center', gap: 6,
-  padding: '7px 14px', borderRadius: radius.pill,
-  ...type.meta, fontWeight: active ? 700 : 500,
+  padding: '6px 12px', borderRadius: radius.pill,
+  ...type.meta, fontWeight: active ? 600 : 500,
   border: `1px solid ${active ? brand.primary : line.hair}`,
   background: active ? brand.primary : surface.card,
   color: active ? brand.white : ink.soft,
 })
 
-// Searchable audit history. `providers` (optional) enables a provider filter.
 export default function HistoryView({ activities, providers, loading = false }) {
   const [q, setQ] = useState('')
   const [kind, setKind] = useState('all')
@@ -37,21 +36,20 @@ export default function HistoryView({ activities, providers, loading = false }) 
   const showProviderFilter = providers && providers.length > 1
 
   return (
-    <div style={{ paddingBottom: 110 }}>
+    <div style={{ paddingBottom: 95 }}>
       <div
         style={{
           position: 'sticky', top: 0, zIndex: 20,
           background: surface.page,
-          padding: '16px 16px 10px',
-          // A soft fade so feed cards slide under the header cleanly.
+          padding: '12px 14px 8px',
           boxShadow: shadow.header,
         }}
       >
-        <div style={{ ...type.screen, color: ink.strong, marginBottom: 12 }}>History</div>
+        <div style={{ ...type.screen, color: ink.strong, marginBottom: 10 }}>History</div>
 
-        <div style={{ position: 'relative', marginBottom: 10 }}>
+        <div style={{ position: 'relative', marginBottom: 8 }}>
           <Search
-            size={17} color={ink.muted} strokeWidth={2.2} aria-hidden
+            size={16} color={ink.muted} strokeWidth={2.2} aria-hidden
             style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
           />
           <input
@@ -60,7 +58,7 @@ export default function HistoryView({ activities, providers, loading = false }) 
             placeholder="Search services, people, notes, M-Pesa codes…"
             aria-label="Search activity"
             style={{
-              width: '100%', padding: '12px 38px 12px 38px', minHeight: 46,
+              width: '100%', padding: '8px 34px 8px 34px', minHeight: 40,
               borderRadius: radius.md, border: `1px solid ${line.hair}`,
               background: surface.card, color: ink.strong, ...type.body,
             }}
@@ -71,29 +69,27 @@ export default function HistoryView({ activities, providers, loading = false }) 
               aria-label="Clear search"
               style={{
                 position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-                width: 30, height: 30, borderRadius: radius.pill, border: 'none',
+                width: 26, height: 26, borderRadius: radius.pill, border: 'none',
                 background: surface.subtle, color: ink.soft,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >
-              <X size={14} strokeWidth={2.5} aria-hidden />
+              <X size={13} strokeWidth={2.5} aria-hidden />
             </button>
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto' }}>
+        <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
           {KINDS.map((k) => (
             <button key={k.value} style={chip(kind === k.value)} onClick={() => setKind(k.value)} aria-pressed={kind === k.value}>
-              <k.icon size={14} strokeWidth={2.4} aria-hidden />
+              <k.icon size={13} strokeWidth={2.4} aria-hidden />
               {k.label}
             </button>
           ))}
         </div>
 
-        {/* The provider filter is the app's own dropdown, not a native
-            <select> — a native one renders the OS menu and ignores the brand. */}
         {showProviderFilter && (
-          <div style={{ marginTop: 10 }}>
+          <div style={{ marginTop: 8 }}>
             <Select
               value={providerId}
               onChange={setProviderId}
@@ -110,7 +106,7 @@ export default function HistoryView({ activities, providers, loading = false }) 
         <div
           role="status"
           aria-live="polite"
-          style={{ ...type.meta, color: ink.muted, marginTop: 10 }}
+          style={{ ...type.metaSm, color: ink.muted, marginTop: 8, marginBottom: 4 }}
         >
           {filtered.length} {filtered.length === 1 ? 'activity' : 'activities'} ·{' '}
           <span className="tnum" style={{ color: primaryDeep, fontWeight: 700 }}>{money(sum.earned)}</span> earned ·{' '}
@@ -118,7 +114,7 @@ export default function HistoryView({ activities, providers, loading = false }) 
         </div>
       </div>
 
-      <div style={{ padding: '0 16px' }}>
+      <div style={{ padding: '0 14px' }}>
         <ActivityFeed
           items={filtered}
           showProvider={!providers || providers.length > 0}

@@ -186,7 +186,6 @@ export default function Select({
         boxShadow: shadow.pop,
         padding: 6,
         zIndex: 1000,
-        maxHeight: 280,
         overflowY: 'auto',
         overscrollBehavior: 'contain',
         WebkitOverflowScrolling: 'touch',

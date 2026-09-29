@@ -45,6 +45,7 @@ export const surface = {
   subtle: 'var(--surface-subtle)',   // inputs, inner panels, wells
   wash:   'var(--wash)',             // active pill / selected chip (warm tint)
   nav:    'var(--surface)',          // bottom tab bar
+  scrim:  'var(--scrim)',            // dimmed page behind a sheet
 }
 
 /* ---------- 4. Lines & depth ---------- */
@@ -102,7 +103,7 @@ export const type = {
 }
 
 /* ---------- 7. Shape ---------- */
-export const radius = { sm: 8, md: 12, lg: 16, xl: 20, pill: 999 }
+export const radius = { sm: 6, md: 10, lg: 14, xl: 18, pill: 999 }
 
 /* Depth. Shadows are --background (black) at low alpha — they only read
  * under panels that are lighter than the page, e.g. cards on the page. */
