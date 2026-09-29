@@ -11,6 +11,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { useShopStore } from '../store/useShopStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { isValidPhone, normalizePhone } from '../utils/phone';
 import ServicePicker from './ServicePicker';
 import Select from './Select';
 import {
@@ -217,6 +218,11 @@ export default function RecordActions({ record, data, showLabel = true }) {
       if (!draft.name.trim()) return 'A provider needs a name.';
       if (!draft.phone.trim())
         return 'The phone number is how they claim their device — it cannot be empty.';
+      // 07…, 01…, 254… and +254… all mean the same number and are stored the
+      // same way (see src/utils/phone.js); anything that isn't dialable is
+      // refused before it reaches the queue.
+      if (!isValidPhone(draft.phone))
+        return 'Enter a valid phone number, e.g. 0712 345 678.';
     }
     return '';
   }
@@ -459,7 +465,11 @@ export default function RecordActions({ record, data, showLabel = true }) {
                   <Field
                     label="Phone number"
                     id="edit-pv-phone"
-                    hint="They claim their own device with this number, so changing it means they claim again with the new one."
+                    hint={
+                      isValidPhone(draft.phone)
+                        ? `Any format works — saved as ${normalizePhone(draft.phone)}. Changing it means they claim again with the new one.`
+                        : 'They claim their own device with this number.'
+                    }
                   >
                     <Input
                       id="edit-pv-phone"
@@ -536,9 +546,9 @@ export default function RecordActions({ record, data, showLabel = true }) {
         <SheetBody>
           <p style={{ ...type.body, color: ink.body, margin: '0 0 14px' , }}>
             {isRecord
-              ? `This removes ${money(data.amount)} from ${
+              ? `This takes ${money(data.amount)} out of ${
                   data.providerName.toUpperCase() || 'the team'
-                }'s running totals.`
+                }'s running totals. The record itself stays in the history, marked as deleted — nothing is ever erased.`
               : kind === 'service'
               ? 'The service stops being offered when adding an earning. Earnings that already used it keep the name and price they were recorded with.'
               : 'They leave the team list, and no new earnings or payouts can be recorded against them. Their existing history is kept.'}

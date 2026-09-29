@@ -9,20 +9,63 @@ import {
   addPayoutLocal,
   getPayoutsForProvider,
   updateEarningLocal,
-  deleteEarningLocal,
+  voidEarningLocal,
   updatePayoutLocal,
-  deletePayoutLocal,
+  voidPayoutLocal,
   replaceCachedServices,
   getCachedServices,
+  cacheService,
   patchRowLocal,
 } from '../lib/db'
 import { runSync, pullRemote as pullRemoteData } from '../lib/sync'
 import { useNetworkStore } from './useNetworkStore'
-import { periodTotals } from '../utils/dates'
+import { isVoided, periodTotals } from '../utils/dates'
+import { normalizePhone, isValidPhone, samePhone } from '../utils/phone'
+
+// Applies a change to one provider row in both rosters: `providers` (active
+// only — the team list and totals) and `allProviders` (everyone, removed
+// included — the history needs them so a deleted provider's records keep their
+// name). A row in one but not the other is how a name goes blank in the feed.
+const mapProvider = (s, id, fn) => ({
+  providers: s.providers.map((p) => (p.id === id ? fn(p) : p)),
+  allProviders: s.allProviders.map((p) => (p.id === id ? fn(p) : p)),
+})
+
+// Every provider number is stored canonically (+254712345678), whatever was
+// typed — 07…, 01…, 254…, +254… — and a number that isn't dialable is refused
+// rather than saved as junk (see src/utils/phone.js).
+function requirePhone(phone) {
+  const normalized = normalizePhone(phone)
+  if (!isValidPhone(normalized)) {
+    throw new Error('Enter a valid phone number, e.g. 0712 345 678')
+  }
+  return normalized
+}
+
+// Is this number already someone else's? Compared canonical, so a duplicate
+// that differs only in format is caught here — offline, with a clear reason,
+// instead of failing much later when the queued write reaches the server.
+// The full roster is used because the database's unique (shop_id, phone)
+// constraint counts a removed provider's number too.
+function phoneTaken(roster, phone, exceptId) {
+  return roster.some((p) => p.id !== exceptId && samePhone(p.phone, phone))
+}
+
+// The same rule, as the server states it: 23505 is Postgres' unique_violation,
+// raised by service_providers' unique (shop_id, phone). Reached when another
+// device registered the number while this one was offline, which is exactly
+// the case the local check above cannot see.
+function duplicatePhoneError(error) {
+  if (error?.code === '23505' || /duplicate key/i.test(error?.message || '')) {
+    return new Error('That phone number is already registered to another provider.')
+  }
+  return error
+}
 
 export const useShopStore = create((set, get) => ({
   shopId: null,
   providers: [],
+  allProviders: [],         // active + removed, for history
   services: [],
   pulling: false,            // true while downloading history from the server
   requests: [],             // provider-submitted records (pending/approved/rejected)
@@ -41,8 +84,14 @@ export const useShopStore = create((set, get) => ({
     try {
       const { added, providerIds } = await pullRemoteData(shopId)
       if (added > 0) {
-        let list = get().providers
-        if (!list.length) list = await get().loadProviders(shopId)
+        // Everyone on the roster, removed providers included: their records are
+        // still part of the history, so a row downloaded for them has to reach
+        // the screen too.
+        let list = get().allProviders
+        if (!list.length) {
+          await get().loadProviders(shopId)
+          list = get().allProviders
+        }
         const targets = providerIds.length
           ? list.filter((p) => providerIds.includes(p.id))
           : list
@@ -64,9 +113,7 @@ export const useShopStore = create((set, get) => ({
       .update({ can_self_record: value })
       .eq('id', providerId)
     if (error) throw error
-    set((s) => ({
-      providers: s.providers.map((p) => (p.id === providerId ? { ...p, can_self_record: value } : p)),
-    }))
+    set((s) => mapProvider(s, providerId, (p) => ({ ...p, can_self_record: value })))
     const updated = get().providers.find((p) => p.id === providerId)
     if (updated) await cacheProviders([updated])
   },
@@ -108,12 +155,15 @@ export const useShopStore = create((set, get) => ({
     await get().loadRequests()
   },
 
-  // Providers are owner-managed metadata (name/phone/photo), written
-  // directly to Supabase — not offline-queued like earnings/payouts,
-  // since adding a provider requires being online to register their phone.
   addProvider: async ({ name, phone, photoUrl, roleTitle }) => {
-    const { shopId } = get()
-    const normalizedPhone = phone.startsWith('+') ? phone : `+${phone}`
+    const { shopId, providers, allProviders } = get()
+    // Stored in one canonical shape and unique after normalizing: "0712 345
+    // 678" and "254712345678" are the same number, so the second one is a
+    // duplicate rather than a second provider.
+    const normalizedPhone = requirePhone(phone)
+    if (phoneTaken(allProviders.length ? allProviders : providers, normalizedPhone)) {
+      throw new Error('That phone number is already registered to another provider.')
+    }
     const { data, error } = await supabase
       .from('service_providers')
       .insert({
@@ -125,15 +175,12 @@ export const useShopStore = create((set, get) => ({
       })
       .select()
       .single()
-    if (error) throw error
+    if (error) throw duplicatePhoneError(error)
     await cacheProviders([data])
-    set((s) => ({ providers: [...s.providers, data] }))
+    set((s) => ({ providers: [...s.providers, data], allProviders: [...s.allProviders, data] }))
     return data
   },
 
-  // Read-through, like loadProviders: the server refreshes the cache when
-  // there's signal, but the list the UI renders is always the local one, so
-  // the price list still opens with no connection.
   loadServices: async (shopId) => {
     if (!shopId) return []
     if (navigator.onLine) {
@@ -158,6 +205,10 @@ export const useShopStore = create((set, get) => ({
       .select()
       .single()
     if (error) throw error
+    // Cached, not just held in memory: the price list is read from IndexedDB, so
+    // a service that exists only in this state would look "no longer on the
+    // list" the moment the owner edited or deleted it.
+    await cacheService(data)
     set((s) => ({ services: [...s.services, data].sort((a, b) => a.name.localeCompare(b.name)) }))
     return data
   },
@@ -174,7 +225,11 @@ export const useShopStore = create((set, get) => ({
       if (!error && data) await cacheProviders(data)
     }
     const cached = await getCachedProviders(shopId)
-    set({ providers: cached })
+    // The full roster (removed providers included) is kept for the history: a
+    // deleted provider's earnings stay in the audit trail, and the feed has to
+    // keep showing their name.
+    const roster = await getCachedProviders(shopId, { includeInactive: true })
+    set({ providers: cached, allProviders: roster })
     return cached
   },
 
@@ -229,16 +284,17 @@ export const useShopStore = create((set, get) => ({
     runSync()
   },
 
-  // Deletes are soft until the server confirms (see deleteEarningLocal), so the
-  // row vanishes from the list immediately and disappears for good after sync.
+  // Removing an activity never removes the record. It is voided: it stays in the
+  // list (struck through in the feed) and out of every total, here and on the
+  // server. History is the audit trail — it is never cleared, on any device.
   deleteEarning: async ({ localId, providerId }) => {
-    await deleteEarningLocal(localId)
+    await voidEarningLocal(localId)
     await get().loadProviderLogs(providerId)
     runSync()
   },
 
   deletePayout: async ({ localId, providerId }) => {
-    await deletePayoutLocal(localId)
+    await voidPayoutLocal(localId)
     await get().loadProviderLogs(providerId)
     runSync()
   },
@@ -274,14 +330,24 @@ export const useShopStore = create((set, get) => ({
     if (name !== undefined) patch.name = name
     // service_providers.phone is NOT NULL (and unique per shop) — the provider
     // claims their device with it — so an emptied field keeps the old number
-    // rather than trying to write null, which the server would reject.
-    if (phone) patch.phone = phone
+    // rather than trying to write null, which the server would reject. A real
+    // edit is normalized (07…, 254…, +254… all become +254…) and checked for a
+    // duplicate before it is written, so a queued change can't quietly clash
+    // with a number someone already holds.
+    if (phone) {
+      const normalizedPhone = requirePhone(phone)
+      const { providers, allProviders } = get()
+      if (phoneTaken(allProviders.length ? allProviders : providers, normalizedPhone, id)) {
+        throw new Error('That phone number is already registered to another provider.')
+      }
+      patch.phone = normalizedPhone
+    }
     if (roleTitle !== undefined) patch.role_title = roleTitle || 'Service Provider'
     if (canSelfRecord !== undefined) patch.can_self_record = canSelfRecord
 
-    const row = await patchRowLocal('service_providers', id, patch)
+    const row = await patchRowLocal('providers', id, patch)
     if (!row) throw new Error('That provider is no longer on the list.')
-    set((s) => ({ providers: s.providers.map((p) => (p.id === id ? row : p)) }))
+    set((s) => mapProvider(s, id, () => row))
     runSync()
     return row
   },
@@ -291,9 +357,14 @@ export const useShopStore = create((set, get) => ({
   // database refuses any new earning or payout against an inactive provider,
   // so a stale device can never add to a balance after the fact.
   deleteProvider: async (id) => {
-    const row = await patchRowLocal('service_providers', id, { active: false })
+    const row = await patchRowLocal('providers', id, { active: false })
     if (!row) throw new Error('That provider is no longer on the list.')
-    set((s) => ({ providers: s.providers.filter((p) => p.id !== id) }))
+    set((s) => ({
+      providers: s.providers.filter((p) => p.id !== id),
+      // Kept in the full roster so their name still resolves in history — they
+      // are off the team list, not out of the ledger.
+      allProviders: s.allProviders.map((p) => (p.id === id ? row : p)),
+    }))
     runSync()
     return row
   },
@@ -311,14 +382,19 @@ export const useShopStore = create((set, get) => ({
     }
   },
 
-  // Shop-wide totals across every cached provider's loaded logs.
+  // Shop-wide totals across every cached provider's loaded logs. Voided records
+  // are skipped: they are still in the history, but they no longer count.
   shopSummary: () => {
     const { providers, earningsByProvider, payoutsByProvider } = get()
     let earned = 0
     let paid = 0
     for (const p of providers) {
-      earned += (earningsByProvider[p.id] || []).reduce((s, r) => s + Number(r.amount), 0)
-      paid += (payoutsByProvider[p.id] || []).reduce((s, r) => s + Number(r.amount), 0)
+      earned += (earningsByProvider[p.id] || [])
+        .filter((r) => !isVoided(r))
+        .reduce((s, r) => s + Number(r.amount), 0)
+      paid += (payoutsByProvider[p.id] || [])
+        .filter((r) => !isVoided(r))
+        .reduce((s, r) => s + Number(r.amount), 0)
     }
     return { earned, paid, owed: earned - paid }
   },

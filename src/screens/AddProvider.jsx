@@ -4,6 +4,7 @@ import { useShopStore } from '../store/useShopStore'
 import { Screen, Button, Field, Input, ErrorText } from '../components/ui'
 import Avatar from '../components/Avatar'
 import { type, ink, surface } from '../theme'
+import { isValidPhone, normalizePhone } from '../utils/phone'
 
 export default function AddProvider() {
   const navigate = useNavigate()
@@ -15,10 +16,16 @@ export default function AddProvider() {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
+  // 07…, 01…, 254… and +254… are the same number and stored in one shape, so
+  // the screen shows which shape that is before it is saved.
+  const normalizedPhone = normalizePhone(phone)
+  const phoneReady = isValidPhone(phone)
+
   const submit = async () => {
     setError('')
     if (!name.trim()) return setError('Name is required.')
     if (!phone.trim()) return setError('Phone number is required — the provider claims their account with it.')
+    if (!phoneReady) return setError('Enter a valid phone number, e.g. 0712 345 678.')
     setSaving(true)
     try {
       const provider = await addProvider({ name: name.trim(), phone: phone.trim(), photoUrl, roleTitle: roleTitle.trim() })
@@ -41,7 +48,15 @@ export default function AddProvider() {
         <Input id="p-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Brian Otieno" big />
       </Field>
 
-      <Field label="Phone number" id="p-phone">
+      <Field
+        label="Phone number"
+        id="p-phone"
+        hint={
+          phoneReady
+            ? `Any format works — stored as ${normalizedPhone}.`
+            : 'Any format works — 07…, 01…, 254… or +254…'
+        }
+      >
         <Input id="p-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="2547XXXXXXXX" inputMode="tel" big />
       </Field>
 

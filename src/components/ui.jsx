@@ -238,9 +238,9 @@ export function ErrorText({ children, style }) {
     <div
       role="alert"
       style={{
-        ...type.meta, color: status.danger.fg, marginBottom: 12,
+        ...type.metaSm, color: status.danger.fg, marginBottom: 12,
         background: status.danger.bg, padding: '9px 12px',
-        borderRadius: radius.sm, ...style,
+        borderRadius: radius.md, ...style,
       }}
     >
       {children}

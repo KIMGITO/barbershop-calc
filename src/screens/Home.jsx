@@ -11,7 +11,13 @@ import {
 } from 'lucide-react';
 import { useShopStore } from '../store/useShopStore';
 import { useAuthStore } from '../store/useAuthStore';
-import { mergeActivities, isToday, totals } from '../utils/activity';
+import { samePhone } from '../utils/phone';
+import {
+  mergeActivities,
+  isToday,
+  liveActivities,
+  totals,
+} from '../utils/activity';
 import StatPill from '../components/StatPill';
 import ActivityFeed from '../components/ActivityFeed';
 import { Screen } from '../components/ui';
@@ -36,7 +42,7 @@ export default function Home() {
   const loadProviderLogs = useShopStore((s) => s.loadProviderLogs);
   const shopSummary = useShopStore((s) => s.shopSummary);
   const pulling = useShopStore((s) => s.pulling);
-  const signOutOwner = useAuthStore((s) => s.signOutOwner);
+  const signOut = useAuthStore((s) => s.forgetDevice);
   const shop = useAuthStore((s) => s.shop);
   const pending = useShopStore(
     (s) => s.requests.filter((r) => r.status === 'pending').length,
@@ -49,7 +55,10 @@ export default function Home() {
     );
   }, [shopId]);
 
-  const me = providers.find((p) => p.phone === shop?.owner_phone);
+  // The admin's own provider row, matched by number rather than by string
+  // equality: the shop's owner_phone and the provider row both come back
+  // canonical now, and this keeps matching if one of them ever isn't.
+  const me = providers.find((p) => samePhone(p.phone, shop?.owner_phone));
 
   const nameOf = (id) => providers.find((p) => p.id === id)?.name || '';
   const all = mergeActivities(
@@ -57,7 +66,10 @@ export default function Home() {
     providers.flatMap((p) => payoutsByProvider[p.id] || []),
     nameOf,
   );
-  const today = all.filter(isToday);
+  // Home is an activity surface, not the audit trail: a record the owner
+  // removed leaves this feed the moment it is removed. It is still in History,
+  // struck through and marked "Deleted" (see liveActivities).
+  const today = liveActivities(all).filter(isToday);
   const day = totals(today);
   const { owed } = shopSummary();
 
@@ -83,7 +95,7 @@ export default function Home() {
           {shop?.name || 'Barbershop'}
         </div>
         <button
-          onClick={signOutOwner}
+          onClick={signOut}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -226,9 +238,8 @@ export default function Home() {
             ...type.metaSm,
             fontWeight: 600,
             padding: '4px 0',
-            
           }}
-          className='underline'
+          className="underline"
         >
           See history
         </button>

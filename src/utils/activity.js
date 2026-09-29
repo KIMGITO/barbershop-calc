@@ -1,4 +1,4 @@
-import { startOfDay } from './dates'
+import { isVoided, startOfDay } from './dates'
 
 // An "activity" is one row in the audit trail: either an earning (a visit,
 // with the services selected) or a payout. Everything needed to audit it
@@ -25,6 +25,11 @@ export function toActivity(row, kind, providerName = '') {
     pending: !!row.pending,
     source: row.source || 'admin',
     submission: row.submission || null,
+    // Removed by the owner, but deliberately still here: deleting an activity
+    // voids it (see lib/db.js) so the history is never cleared. It is rendered
+    // struck through and left out of every total.
+    voided: isVoided(row),
+    voidedAt: row.voided_at || null,
   }
 }
 
@@ -33,6 +38,22 @@ export function mergeActivities(earnings, payouts, nameOf = () => '') {
     ...earnings.map((e) => toActivity(e, 'earning', nameOf(e.provider_id))),
     ...payouts.map((p) => toActivity(p, 'payout', nameOf(p.provider_id))),
   ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+}
+
+// The ledger has two surfaces and they disagree on purpose:
+//
+//   - an *activity* surface (Home's "Today's activity", a provider's Activity
+//     Log) shows what is live right now, so a record the owner removed is gone
+//     from it — that is what the delete confirmed;
+//   - the *history* surface (HistoryView) shows everything ever recorded,
+//     including what was removed and when, because that is the audit trail.
+//
+// `mergeActivities` deliberately does not filter anything, so a screen has to
+// say which of the two it is: the activity screens call this, and HistoryView
+// does not. Keeping it one named function means "removed" is decided in a
+// single place instead of by a stray `.filter` somewhere in a screen.
+export function liveActivities(items) {
+  return items.filter((a) => !a.voided)
 }
 
 export function activityTitle(a) {
@@ -69,6 +90,7 @@ export function matchesQuery(a, query) {
     ...a.services.flatMap((s) => [s.name, String(s.price ?? '')]),
     a.note, a.method, methodLabel(a.method), a.mpesaCode,
     String(a.amount),
+    a.voided ? 'deleted removed voided' : '',
     new Date(a.createdAt).toLocaleString(),
     dayLabel(a.createdAt),
   ].join(' ').toLowerCase()
@@ -90,6 +112,9 @@ export function totals(items) {
   let earned = 0
   let paid = 0
   for (const a of items) {
+    // A removed activity stays in the list — history keeps it — but it counts
+    // towards nothing.
+    if (a.voided) continue
     if (a.kind === 'earning') earned += a.amount
     else paid += a.amount
   }

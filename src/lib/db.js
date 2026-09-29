@@ -72,7 +72,13 @@ export async function replaceCachedServices(shopId, list) {
   const tx = db.transaction('services', 'readwrite')
   const keep = new Set(list.map((s) => s.id))
   for (const key of await tx.store.index('shop_id').getAllKeys(shopId)) {
-    if (!keep.has(key)) await tx.store.delete(key)
+    if (keep.has(key)) continue
+    // A row this device hasn't uploaded yet is never dropped: its edit (or its
+    // deactivation) is still queued, and removing the cached copy would make
+    // the change vanish from the price list until the queue drains.
+    const local = await tx.store.get(key)
+    if (local?.pending) continue
+    await tx.store.delete(key)
   }
   for (const s of list) {
     const local = await tx.store.get(s.id)
@@ -89,18 +95,35 @@ export async function getCachedServices(shopId) {
 }
 
 // --- Catalog edits (services, providers) ---
+// A local object store does not always share its name with the Supabase table
+// it mirrors: the roster lives in `providers` locally but is `service_providers`
+// on the server. Both names therefore travel on the queue entry — `table` is
+// what PostgREST is asked for, `store` is where the row lives on this device
+// (used to clear `pending`). Passing one name for both is what made a provider
+// edit/delete throw `'service_providers' is not a known object store name`:
+// IndexedDB did not have a store by that name, and the write never happened.
+const REMOTE_TABLE = {
+  providers: 'service_providers',
+}
+
 // These rows are seeded on the server, so this device only ever *changes* them,
 // never creates them. That rules out the local_id upsert the earnings/payouts
 // queue uses, so the queue entry is keyed by the row's server id and carries
 // only the changed columns as a 'patch'. Applying a patch twice is a no-op,
 // which is what makes a retry after a dropped response safe.
-export async function patchRowLocal(table, id, patch) {
+export async function patchRowLocal(store, id, patch) {
   const db = await getDB()
-  const current = await db.get(table, id)
+  const current = await db.get(store, id)
   if (!current) return null
   const row = { ...current, ...patch, pending: true }
-  await db.put(table, row)
-  await db.put('sync_queue', { local_id: id, table, op: 'patch', payload: patch })
+  await db.put(store, row)
+  await db.put('sync_queue', {
+    local_id: id,
+    store,
+    table: REMOTE_TABLE[store] || store,
+    op: 'patch',
+    payload: patch,
+  })
   return row
 }
 
@@ -109,10 +132,21 @@ export async function patchRowLocal(table, id, patch) {
 // keeps its identity if it is ever restored), but it must never be handed back
 // to the UI — otherwise the next offline read resurrects someone the owner
 // removed, and they show up in the team list and the totals again.
-export async function getCachedProviders(shopId) {
+// `includeInactive` is for the history: a removed provider's earnings are still
+// part of the audit trail, and their name has to keep resolving in the feed.
+export async function getCachedProviders(shopId, { includeInactive = false } = {}) {
   const db = await getDB()
   const rows = await db.getAllFromIndex('providers', 'shop_id', shopId)
-  return rows.filter((p) => p.active !== false)
+  return includeInactive ? rows : rows.filter((p) => p.active !== false)
+}
+
+// Saves a service the server just created (a new entry in the price list) into
+// the local catalog, already synced. Without it the new row only lives in the
+// store's memory, so editing or deleting it before the next catalog refresh
+// found nothing to patch and the app claimed it was "no longer on the list".
+export async function cacheService(row) {
+  const db = await getDB()
+  await db.put('services', { ...row, pending: false })
 }
 
 // --- Earnings ---
@@ -141,12 +175,15 @@ export async function cacheEarning(row) {
   await db.put('earnings', { ...row, pending: false })
 }
 
+// Every earning ever recorded for this provider, newest first — including ones
+// the owner has removed. A removed activity is kept as a *void* (see
+// voidEarningLocal): the audit trail must never lose a record, so the row stays
+// and is rendered struck through, while every total leaves it out (see
+// utils/dates.js `isVoided`).
 export async function getEarningsForProvider(providerId) {
   const db = await getDB()
   const rows = await db.getAllFromIndex('earnings', 'provider_id', providerId)
-  return rows
-    .filter((r) => !r.deleted)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  return rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 }
 
 // Applies an edit to an earning. Works offline: the row is patched locally
@@ -161,7 +198,6 @@ export async function updateEarningLocal(localId, patch) {
     ...current,
     ...patch,
     local_id: localId,
-    deleted: false,
     pending: true,
   }
   await db.put('earnings', row)
@@ -169,20 +205,25 @@ export async function updateEarningLocal(localId, patch) {
   return row
 }
 
-// Soft-deletes an earning: the row is hidden from the UI and a `delete` op is
-// queued, but it is kept on disk until the server confirms. That way the delete
-// survives an offline edit and the row's history stays coherent until sync.
-export async function deleteEarningLocal(localId) {
+// Deleting an activity is a *void*, never a removal: the row stays on disk and
+// on the server, stamped with `voided_at`, so the history keeps both the record
+// and the fact that it was removed. The stamp is all the server is sent (an
+// `update` on the row, keyed by local_id), which is idempotent — re-sending it
+// after a dropped response just re-writes the same timestamp.
+export async function voidEarningLocal(localId) {
   const db = await getDB()
   const current = await db.get('earnings', localId)
   if (!current) return null
-  const row = { ...current, deleted: true, pending: true }
+  const voided_at = current.voided_at || new Date().toISOString()
+  const row = { ...current, voided_at, pending: true }
   await db.put('earnings', row)
-  await db.put('sync_queue', { local_id: localId, table: 'earnings', op: 'delete', payload: { ...row, op: 'delete' } })
+  await db.put('sync_queue', { local_id: localId, table: 'earnings', op: 'void', payload: { voided_at } })
   return row
 }
 
-// Called after the server accepts a delete: drop the tombstone for good.
+// Drops a row from disk. Only reachable through a `delete` op queued by a build
+// from before deleting became a void — nothing in the app queues one any more,
+// because history is permanent.
 export async function purgeRow(table, localId) {
   const db = await getDB()
   await db.delete(table, localId)
@@ -210,9 +251,7 @@ export async function addPayoutLocal({ shop_id, provider_id, amount, method, mpe
 export async function getPayoutsForProvider(providerId) {
   const db = await getDB()
   const rows = await db.getAllFromIndex('payouts', 'provider_id', providerId)
-  return rows
-    .filter((r) => !r.deleted)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  return rows.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
 }
 
 export async function updatePayoutLocal(localId, patch) {
@@ -223,7 +262,6 @@ export async function updatePayoutLocal(localId, patch) {
     ...current,
     ...patch,
     local_id: localId,
-    deleted: false,
     pending: true,
   }
   await db.put('payouts', row)
@@ -231,13 +269,16 @@ export async function updatePayoutLocal(localId, patch) {
   return row
 }
 
-export async function deletePayoutLocal(localId) {
+// See voidEarningLocal: a removed payout is stamped, not deleted, so the payout
+// history can never be cleared.
+export async function voidPayoutLocal(localId) {
   const db = await getDB()
   const current = await db.get('payouts', localId)
   if (!current) return null
-  const row = { ...current, deleted: true, pending: true }
+  const voided_at = current.voided_at || new Date().toISOString()
+  const row = { ...current, voided_at, pending: true }
   await db.put('payouts', row)
-  await db.put('sync_queue', { local_id: localId, table: 'payouts', op: 'delete', payload: { ...row, op: 'delete' } })
+  await db.put('sync_queue', { local_id: localId, table: 'payouts', op: 'void', payload: { voided_at } })
   return row
 }
 
@@ -254,12 +295,15 @@ export async function getPendingSyncCount() {
 
 // Called once Supabase has accepted a queued row: drop it from the queue
 // AND clear its `pending` flag, so the UI stops showing "syncing…".
-export async function clearSyncedRow(localId, table) {
+// `store` is the *local* object store name, which is not always the server
+// table name (see REMOTE_TABLE): reading `service_providers` here would throw
+// and leave the entry queued forever.
+export async function clearSyncedRow(localId, store) {
   const db = await getDB()
   await db.delete('sync_queue', localId)
-  if (table) {
-    const row = await db.get(table, localId)
-    if (row) await db.put(table, { ...row, pending: false })
+  if (store) {
+    const row = await db.get(store, localId)
+    if (row) await db.put(store, { ...row, pending: false })
   }
 }
 

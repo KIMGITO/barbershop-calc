@@ -2,19 +2,27 @@ import { useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { Screen, Button, Field, Input, ErrorText } from '../components/ui'
 import { ink, surface, type, primaryDeep } from '../theme'
+import { isValidPhone, normalizePhone } from '../utils/phone'
 
 // First-launch screen for a service provider. They enter the phone number
 // the owner registered them with; if it matches an unclaimed record, this
 // device is permanently bound to that provider (see claimProviderAccount).
 // There is no OTP — this only works once per provider record.
+//
+// The number is matched in canonical form, so a provider who was registered
+// as "254712345678" can enter "0712 345 678" and still be found.
 export default function ProviderClaim({ onBack }) {
   const [phone, setPhone] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const claimProviderAccount = useAuthStore((s) => s.claimProviderAccount)
 
+  const normalizedPhone = normalizePhone(phone)
+  const phoneReady = isValidPhone(phone)
+
   const submit = async () => {
     setError('')
+    if (!phoneReady) return setError('Enter a valid phone number, e.g. 0712 345 678.')
     setLoading(true)
     try {
       await claimProviderAccount({ phone })
@@ -30,8 +38,8 @@ export default function ProviderClaim({ onBack }) {
       <div
         style={{
           background: 'var(--gradient-dark-warm)',  textAlign: 'center',
-          padding: 'calc(40px + env(safe-area-inset-top, 0px)) 24px 28px',
-          borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
+          padding: 'calc(80px + env(safe-area-inset-top, 0px)) 24px 28px',
+          borderBottomLeftRadius: 0, borderBottomRightRadius: '80px',
         }}
       >
        
@@ -43,7 +51,15 @@ export default function ProviderClaim({ onBack }) {
           Enter the phone number the owner registered you with.
         </p>
 
-        <Field label="Phone number" id="c-phone" hint="Ask your owner if you're not sure which number they used.">
+        <Field
+          label="Phone number"
+          id="c-phone"
+          hint={
+            phoneReady
+              ? `Any format works — matching ${normalizedPhone}.`
+              : "Ask your owner if you're not sure which number they used. 07…, 01…, 254… or +254…"
+          }
+        >
           <Input
             id="c-phone" value={phone} onChange={(e) => setPhone(e.target.value)}
             placeholder="2547XXXXXXXX" inputMode="tel" autoComplete="tel" big

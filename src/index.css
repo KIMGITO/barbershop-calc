@@ -39,7 +39,9 @@
   --gradient-dark: linear-gradient(
     135deg,
     #000000 0%,
-    #262626 100%
+    #000000 0%,
+
+    #3f3b3b 100%
   );
 
   --gradient-warm: linear-gradient(

@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useShopStore } from '../store/useShopStore';
 import { useAuthStore } from '../store/useAuthStore';
+import { formatPhone, isValidPhone, normalizePhone, samePhone } from '../utils/phone';
 import StatPill from '../components/StatPill';
 import ActivityFeed from '../components/ActivityFeed';
 import SelfRecordToggle from '../components/SelfRecordToggle';
 import Avatar from '../components/Avatar';
-import { mergeActivities } from '../utils/activity';
+import { liveActivities, mergeActivities } from '../utils/activity';
 import {
   ArrowLeft,
   TrendingUp,
@@ -69,9 +70,16 @@ export default function ProviderDetail() {
   if (!provider) return null;
 
   const isOwner = role === 'owner';
-  const isSelf = provider.phone === ownerPhone;
+  // Same number, any format — the admin typed it once as 07…, the roster may
+  // hold it as +254…, and both mean "this is me".
+  const isSelf = samePhone(provider.phone, ownerPhone);
   const { earned, paid, owed } = providerSummary(id);
-  const feed = mergeActivities(earnings, payouts, () => provider.name);
+  // The Activity Log is an activity surface, not the audit trail: a record the
+  // owner removed leaves it. It is still in History, struck through and marked
+  // "Deleted" (see liveActivities).
+  const feed = liveActivities(
+    mergeActivities(earnings, payouts, () => provider.name),
+  );
 
   const closeSheet = () => {
     setSheet(null);
@@ -98,6 +106,11 @@ export default function ProviderDetail() {
   async function handleSaveEdit() {
     if (!draft.name.trim()) return setError('A provider needs a name.');
     if (!draft.phone.trim()) return setError('Phone number cannot be empty.');
+    // Any format is accepted — 07…, 01…, 254…, +254… — because the store
+    // normalizes before writing. Something that isn't a dialable number is
+    // refused here rather than queued and rejected by the server later.
+    if (!isValidPhone(draft.phone))
+      return setError('Enter a valid phone number, e.g. 0712 345 678.');
 
     setBusy(true);
     setError('');
@@ -216,7 +229,7 @@ export default function ProviderDetail() {
                 {provider.name}
               </div>
               <div style={{ ...type.meta, color: ink.muted, marginTop: 2 }}>
-                {provider.role_title || 'Provider'} · {provider.phone}
+                {provider.role_title || 'Provider'} · {formatPhone(provider.phone)}
               </div>
             </div>
           </div>
@@ -420,7 +433,11 @@ export default function ProviderDetail() {
               <Field
                 label="Phone number"
                 id="edit-pv-phone"
-                hint="They claim their device with this number."
+                hint={
+                  isValidPhone(draft.phone)
+                    ? `Any format works — saved as ${normalizePhone(draft.phone)}.`
+                    : 'They claim their device with this number.'
+                }
               >
                 <Input
                   id="edit-pv-phone"

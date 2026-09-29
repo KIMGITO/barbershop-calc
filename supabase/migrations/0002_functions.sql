@@ -25,7 +25,7 @@ begin
     for update;
 
   if not found then
-    raise exception 'No unclaimed provider found for this phone number';
+    raise exception 'A provider with this phone number is not registered or has another device registered. Please contact the shop owner to reset your access.';
   end if;
 
   update service_providers

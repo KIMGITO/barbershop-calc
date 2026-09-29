@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/useAuthStore'
 import { Screen, Button, Field, Input, ErrorText } from '../components/ui'
 import { Scissors } from 'lucide-react'
 import { ink, surface, type, primaryDeep } from '../theme'
+import { isValidPhone, normalizePhone } from '../utils/phone'
 
 // mode 'setup'   → first launch: create the one admin + the shop.
 // mode 'resume'  → admin already exists: enter the registered number to
@@ -20,8 +21,14 @@ export default function AdminOnboarding({ mode, onBack }) {
   const isSetup = mode === 'setup'
   const canSubmit = isSetup ? name.trim() && shopName.trim() && phone.trim() : phone.trim()
 
+  // Whatever format the number is typed in — 07…, 01…, 254…, +254… — it is
+  // stored and looked up in one canonical shape, so the field shows which.
+  const normalizedPhone = normalizePhone(phone)
+  const phoneReady = isValidPhone(phone)
+
   const submit = async () => {
     setError('')
+    if (!phoneReady) return setError('Enter a valid phone number, e.g. 0712 345 678.')
     setLoading(true)
     try {
       if (isSetup) await setupAdmin({ name: name.trim(), phone, shopName: shopName.trim() })
@@ -74,7 +81,15 @@ export default function AdminOnboarding({ mode, onBack }) {
           </>
         )}
 
-        <Field label="Phone number" id="a-phone" hint="Used to sign in on any device.">
+        <Field
+          label="Phone number"
+          id="a-phone"
+          hint={
+            phoneReady
+              ? `Any format works — stored as ${normalizedPhone}.`
+              : 'Used to sign in on any device — 07…, 01…, 254… or +254…'
+          }
+        >
           <Input
             id="a-phone" value={phone} onChange={(e) => setPhone(e.target.value)}
             placeholder="2547XXXXXXXX" inputMode="tel" autoComplete="tel" big

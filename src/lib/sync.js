@@ -34,6 +34,12 @@ export async function runSync() {
       const { table, payload, local_id } = row
       // Rows queued before CRUD support carry no `op`; treat those as inserts.
       const op = row.op || payload?.op || 'insert'
+      // A local object store doesn't always share its name with the server table
+      // it mirrors (the roster is `providers` here, `service_providers` there).
+      // `table` is what PostgREST is asked for; `store` is where the row lives on
+      // this device, and is what `clearSyncedRow` must be given — looking the row
+      // up in a store that doesn't exist throws and the queue entry never clears.
+      const store = row.store || table
       try {
         // `pending` and `deleted` are client-only bookkeeping with no column in
         // Postgres. PostgREST rejects the entire request with a 400 if any
@@ -41,6 +47,10 @@ export async function runSync() {
         const { pending: _p, deleted: _d, op: _o, ...columns } = payload
 
         if (op === 'delete') {
+          // Legacy: nothing in the app queues a real delete any more (removing
+          // an activity voids it — see the `void` branch below), but a queue
+          // entry written by an older build is still honoured rather than being
+          // misread as an insert, which would resurrect the record.
           // Deleting by local_id is idempotent: a row that never reached the
           // server (created and deleted while offline) simply matches nothing.
           const { error } = await supabase.from(table).delete().eq('local_id', local_id)
@@ -49,8 +59,19 @@ export async function runSync() {
           // pass can't resurrect it on the next pull, then clear the queue
           // entry. Both are required: purging without dequeuing would retry
           // this delete forever and pin the "pending" count above zero.
-          await purgeRow(table, local_id)
-          await clearSyncedRow(local_id)
+          await purgeRow(store, local_id)
+          await clearSyncedRow(local_id, store)
+          continue
+        }
+
+        if (op === 'void') {
+          // Removing an activity writes a column; it never deletes the row. That
+          // is what makes history permanent: the record, and the fact that it was
+          // removed, both survive. Idempotent — re-sending the same stamp
+          // matches the same row again.
+          const { error } = await supabase.from(table).update(columns).eq('local_id', local_id)
+          if (error) throw error
+          await clearSyncedRow(local_id, store)
           continue
         }
 
@@ -61,7 +82,7 @@ export async function runSync() {
           // after a dropped response just re-applies the same columns.
           const { error } = await supabase.from(table).update(columns).eq('id', local_id)
           if (error) throw error
-          await clearSyncedRow(local_id, table)
+          await clearSyncedRow(local_id, store)
           continue
         }
 
@@ -73,7 +94,7 @@ export async function runSync() {
           .upsert({ ...columns, local_id }, { onConflict: 'local_id' })
 
         if (error) throw error
-        await clearSyncedRow(local_id, table)
+        await clearSyncedRow(local_id, store)
       } catch (rowErr) {
         // Leave this row queued and keep going — it'll retry next pass.
         anyFailure = true

@@ -36,6 +36,21 @@ npm install
 npm run dev
 ```
 
+## 2b. Tests
+
+```bash
+npm test          # vitest, single run
+```
+
+`smoke.test.js` at the repo root covers the CRUD paths that are easy to break
+and hard to notice by hand: editing/removing a provider (whose local store is
+`providers` but whose server table is `service_providers`), adding a service and
+then editing and deleting it in the same session, and removing an activity
+(which must void it rather than erase it). Supabase is faked and the tests run
+in Node against `fake-indexeddb` (see `vitest.setup.js`), so no project or
+network is needed. `navigator.onLine` is false by default, which is what makes
+the offline-first paths deterministic.
+
 ## 3. Wrap it as a native app with Capacitor
 
 ```bash
@@ -242,6 +257,12 @@ immediately — nothing waits on the network. The row is also queued in a
   duplicated sync attempt never creates a duplicate record.
 - Clears each row's `pending` flag once Supabase accepts it, so the UI
   stops showing "syncing…" instead of leaving it stuck forever.
+- Queues the *operation*, not just the row: `insert`/`update` upsert on
+  `local_id`, `patch` updates one catalog row by its server id, and `void`
+  stamps a removed activity (see *Removing a record* below). Each entry carries
+  both names it needs — the local object store (`store`) and the server table
+  (`table`) — because they are not always the same: the roster is `providers`
+  locally and `service_providers` on the server.
 
 ## Downloading history (server → device)
 
@@ -263,8 +284,10 @@ returns to the foreground, and when the connection comes back.
   server's copy; the local edit wins until it syncs.
 - Providers are unaffected: their own view already comes straight from the
   server via `get_provider_view`.
-- Note this syncs inserts/updates only. Nothing in the app deletes earnings
-  or payouts yet, so there are no deletions to propagate.
+- Note this syncs inserts/updates only: nothing in the app ever deletes an
+  earning or payout. Removing one writes `voided_at` instead (see *Removing a
+  record* below), and that stamp downloads like any other column, so a device
+  that missed the removal still ends up showing the row as deleted.
 
 `src/components/NetworkBanner.jsx` surfaces all of this: an "Offline · N
 changes waiting to sync" banner, a brief "Syncing…" state, or a "Sync
@@ -272,16 +295,52 @@ issue — will retry automatically" notice if Supabase rejects something
 (check the trigger conditions in `0003_triggers.sql` first — e.g. an
 inactive provider — since those are the deliberate rejection cases).
 
+## Removing a record (delete is a void)
+
+History is the audit trail, so nothing the owner removes is erased. Every
+"delete" in the UI is a soft delete, and the row it acts on is permanent:
+
+- **Earnings and payouts** are *voided*, not deleted: the row is stamped with
+  `voided_at` locally, and that same stamp is uploaded as an `update` keyed by
+  `local_id` (a `void` op in the sync queue). The record stays in the
+  provider's log and in the history, struck through and labelled "Deleted", and
+  is left out of every total — `isVoided()` in `src/utils/dates.js` is the one
+  place that decides this. A voided row offers no edit or delete action at all.
+- Two surfaces, one ledger. The **activity** surfaces (Home's "Today's
+  activity", a provider's Activity Log) show what is live right now, so a
+  removed record is gone from them the moment it is removed — `liveActivities()`
+  in `src/utils/activity.js` is the one filter that does that, and those screens
+  call it explicitly. **History** shows everything ever recorded, including the
+  removed record, struck through, labelled "Deleted" and dated with the moment
+  it was removed; `HistoryView` deliberately does not filter. Nothing is
+  filtered inside `mergeActivities`, so a screen has to state which of the two
+  it is rather than inheriting the choice.
+- **Services and providers** are deactivated (`active: false`) instead of being
+  removed, because earnings and payouts point at them: the name and price a
+  record was booked with keep resolving for the life of the ledger. A
+  deactivated provider leaves the team list (and the database refuses new
+  earnings/payouts against them), but stays on the `allProviders` roster so
+  their history still shows a name — see `mapProvider` in
+  `src/store/useShopStore.js`.
+- Both are queued as a `patch` (only the changed columns) so the same write
+  works offline and is idempotent under retry.
+- Requires `supabase/migrations/0010_void_activities.sql`, which adds
+  `voided_at` to `earnings`/`payouts` and drops their `DELETE` policies, so
+  nothing — not a stale queue entry, not any client holding the anon key — can
+  clear history from the server.
+
 ## Admin identity (no passwords)
 
-One admin per installation, identified by phone number — WhatsApp-style.
+One admin per installation, identified by phone number — WhatsApp-style. The
+number is matched in canonical form, so it does not matter which format it was
+entered in when the shop was set up (see *Phone numbers* below).
 
 - First launch on a fresh install → "Set up your shop" (name, shop name, phone). Runs `setup_admin`, which refuses if a shop already exists.
 - Every device gets a Supabase **anonymous** session, persisted on the device, so the admin stays signed in.
-- New/cleared device → "Welcome back": enter the registered number (`recover_admin`) to continue.
-- Providers claim their account with the number the admin registered (`claim_provider`), bound to their device.
+- New/cleared device → "Welcome back": enter the registered number (`recover_admin`) to continue — `0712 345 678` finds a shop registered with `254712345678`.
+- Providers claim their account with the number the admin registered (`claim_provider`), in any format, bound to their device.
 
-**Setup checklist:** run `supabase/migrations/0004_admin_phone_identity.sql` in the SQL editor, and turn on *Authentication → Providers → Allow anonymous sign-ins*. The Phone provider is no longer needed.
+**Setup checklist:** run `supabase/migrations/0004_admin_phone_identity.sql` and `supabase/migrations/0011_phone_normalization.sql` in the SQL editor, and turn on *Authentication → Providers → Allow anonymous sign-ins*. The Phone provider is no longer needed.
 
 **Security note:** without an SMS code, anyone who knows the admin's number can resume as admin from another device. Add Supabase phone OTP later if that becomes a concern.
 
@@ -320,3 +379,47 @@ name/phone/code lookups always match. It is a single row trigger
   covered. Run that part as a superuser if the warning appears.
 - Idempotent: re-running it drops and re-creates the triggers instead of
   failing.
+
+## Phone numbers (one shape, however they are typed)
+
+The phone number is an identity in this app: it is how the admin resumes on a
+new device and how a provider claims theirs. So it is stored in **one canonical
+shape** and every lookup normalizes what was typed before comparing it:
+
+```
+0712345678   0712 345 678   712345678   254712345678
++254 712 345 678   2540712345678   00254712345678   →  +254712345678
+```
+
+- One implementation per side, and they mirror each other:
+  `normalizePhone()` in `src/utils/phone.js` on the device and
+  `normalize_phone()` in `supabase/migrations/0011_phone_normalization.sql` on
+  the server. Both are pure and idempotent, so normalizing a canonical number
+  changes nothing. `isValidPhone()` (a `+` and 9–15 digits, E.164's own range),
+  `samePhone()` and `formatPhone()` (`0712 345 678` for display) sit alongside
+  it; its unit tests are the written spec.
+- Anything that isn't a Kenyan number keeps its digits behind a `+`
+  (`+14155552671`), so a foreign number is stored and compared consistently
+  instead of being mangled into a Kenyan one.
+- **Unique after normalizing.** The existing `unique (shop_id, phone)`
+  constraint and the unique index on `shops.owner_phone` are unchanged — they
+  were always comparing strings, and now the strings are canonical. A second
+  registration of `0712 345 678` when `254712345678` exists is refused.
+- Enforced on both sides, and both sides use the same rule: the store
+  (`requirePhone()` / `phoneTaken()` in `src/store/useShopStore.js` and
+  `useAuthStore.js`) refuses a duplicate or an undialable number before it is
+  queued, and the database's constraint is the backstop for a device that was
+  offline when the number was taken (`23505` is surfaced as "already
+  registered" rather than a raw Postgres error).
+- Writes are canonicalized by triggers (`tr_normalize_provider_phone`,
+  `tr_normalize_owner_phone`) rather than by trusting every caller, so a queue
+  entry from an older build cannot write a second spelling of a number that is
+  already taken. The migration backfills existing rows with the same conversion;
+  if two rows in one shop differ only in format, the first converts and the
+  second is **left as it was with a warning**, because `unique (shop_id, phone)`
+  forbids both. Nothing is dropped or merged: the owner resolves it in the app by
+  editing or removing one of them.
+- The screens show which shape a number will be stored in as it is typed
+  ("Any format works — stored as +254712345678"), and `formatPhone()` renders the
+  local form back to the owner.
+- Requires `supabase/migrations/0011_phone_normalization.sql`.

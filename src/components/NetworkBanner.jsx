@@ -23,7 +23,7 @@ export default function NetworkBanner() {
   } else if (lastError) {
     tone = 'danger'
     Icon = CircleAlert
-    text = 'Sync issue — will retry automatically'
+    text = 'Syncing failed, retrying…'
   } else if (pendingCount > 0) {
     text = `${pendingCount} change${pendingCount === 1 ? '' : 's'} waiting to sync`
   }

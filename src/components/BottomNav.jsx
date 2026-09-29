@@ -40,89 +40,96 @@ export default function BottomNav({ tabs = OWNER_TABS, badges = {} }) {
   const { pathname } = useLocation();
   const hidden = useHideOnScroll(pathname);
 
+  // Dynamic layout adjustment based on tab density (3 items vs 5 items)
+  const isCompact = tabs.length <= 3;
+
   return (
     <nav
       aria-label="Main"
       style={{
         position: 'fixed',
-        left: 10,
-        right: 10,
-        bottom: 'calc(8px + env(safe-area-inset-bottom, 0px))',
-        display: 'grid', // 1. Switch from flex to grid
-        gridAutoFlow: 'column', // 2. Arrange children in columns
-        gridAutoColumns: '1fr', // 3. Make every column exactly the same fractional size (equal width)
+        left: '50%',
+        bottom: 'calc(14px + env(safe-area-inset-bottom, 0px))',
+        display: 'flex',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: isCompact ? 6 : 2,
+        width: 'fit-content',
+        maxWidth: 'calc(100vw - 24px)',
         background: surface.nav,
         border: `1px solid ${line.hair}`,
-        borderRadius: radius.xl,
-        padding: '5px 4px',
-        boxShadow: shadow.nav,
+        borderRadius: radius.pill,
+        padding: '5px 6px',
+        boxShadow: shadow.pop,
         zIndex: 100,
-        transform: hidden ? 'translateY(calc(100% + 40px))' : 'translateY(0)',
+        transform: hidden
+          ? 'translate(-50%, calc(100% + 40px))'
+          : 'translate(-50%, 0)',
         opacity: hidden ? 0 : 1,
         pointerEvents: hidden ? 'none' : 'auto',
-        transition: 'transform 250ms ease, opacity 250ms ease',
+        transition:
+          'transform 250ms cubic-bezier(0.16, 1, 0.3, 1), opacity 200ms ease',
       }}
     >
-      {tabs.map((tab) => (
-        <NavLink
-          key={tab.to}
-          to={tab.to}
-          end={tab.end}
-          style={({ isActive }) => ({
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            textDecoration: 'none',
-            color: isActive ? primaryDeep : ink.muted,
-            padding: '4px 6px',
-            borderRadius: radius.md,
-            background: isActive ? surface.wash : 'transparent',
-            minWidth: 48,
-            position: 'relative',
-            transition: 'background 150ms ease, color 150ms ease',
-          })}
-        >
-          {badges[tab.to] > 0 && (
-            <span
-              style={{
-                position: 'absolute',
-                top: -2,
-                right: 4,
-                minWidth: 16,
-                height: 16,
-                borderRadius: 999,
-                background: status.danger.solid,
-                color: brand.white,
-                ...type.metaSm,
-                fontWeight: 700,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0 3px',
-                fontSize: 10,
-                border: `2px solid ${surface.nav}`,
-              }}
-            >
-              {badges[tab.to] > 9 ? '9+' : badges[tab.to]}
-            </span>
-          )}
-          <tab.icon
-            size={18}
-            strokeWidth={isActiveIcon(tab, pathname) ? 2.5 : 2}
-            aria-hidden
-          />
-          <span
-            style={{
-              ...type.tab,
-              fontWeight: isActiveIcon(tab, pathname) ? 700 : 500,
-            }}
+      {tabs.map((tab) => {
+        const active = isActiveIcon(tab, pathname);
+        const badgeCount = badges[tab.to] || 0;
+
+        return (
+          <NavLink
+            key={tab.to}
+            to={tab.to}
+            end={tab.end}
+            style={() => ({
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 2,
+              textDecoration: 'none',
+              color: active ? primaryDeep : ink.muted,
+              padding: isCompact ? '6px 16px' : '5px 10px',
+              borderRadius: radius.pill,
+              background: active ? surface.wash : 'transparent',
+              minWidth: isCompact ? 58 : 46,
+              position: 'relative',
+              transition:
+                'background 180ms ease, color 180ms ease, transform 150ms ease',
+            })}
           >
-            {tab.label}
-          </span>
-        </NavLink>
-      ))}
+            {badgeCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: isCompact ? 10 : 4,
+                  minWidth: 15,
+                  height: 15,
+                  borderRadius: radius.pill,
+                  background: status.danger.solid,
+                  color: brand.white,
+                  ...type.metaSm,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 3px',
+                  fontSize: 9,
+                  border: `2px solid ${surface.nav}`,
+                }}
+              >
+                {badgeCount > 9 ? '9+' : badgeCount}
+              </span>
+            )}
+            <tab.icon
+              size={isCompact ? 19 : 18}
+              strokeWidth={active ? 2.5 : 1.8}
+              aria-hidden
+            />
+          
+          </NavLink>
+        );
+      })}
     </nav>
   );
 }

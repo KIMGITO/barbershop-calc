@@ -5,6 +5,7 @@ import {
   ChevronDown,
   CloudUpload,
   CircleCheck,
+  Trash2,
 } from 'lucide-react';
 import {
   activityTitle,
@@ -45,6 +46,10 @@ export default function ActivityItem({
   const time = new Date(a.createdAt);
   const fromProvider = a.source === 'provider_request';
   const edited = wasEdited(a);
+  // Removed by the owner, but still on the record: it is shown struck through,
+  // marked as deleted, and kept out of the totals. Never dropped from the feed —
+  // the history is the audit trail.
+  const voided = !!a.voided;
   const servicesTotal = a.services.reduce(
     (s, x) => s + Number(x.price || 0),
     0,
@@ -75,7 +80,7 @@ export default function ActivityItem({
       >
         <IconTile
           icon={isEarning ? RockingChair : ArrowUpRight}
-          tone={isEarning ? 'wash' : 'pending'}
+          tone={voided ? 'muted' : isEarning ? 'wash' : 'pending'}
           size={34}
         />
 
@@ -83,11 +88,12 @@ export default function ActivityItem({
           <div
             style={{
               ...type.handle,
-              color: ink.strong,
+              color: voided ? ink.muted : ink.strong,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
               textTransform: 'capitalize',
+              textDecoration: voided ? 'line-through' : 'none',
             }}
           >
             {activityTitle(a)}
@@ -127,6 +133,11 @@ export default function ActivityItem({
               </span>
             )}
             {fromProvider && <span>· self-recorded</span>}
+            {voided && (
+              <span style={{ color: status.danger.fg, fontWeight: 700 }}>
+                · deleted
+              </span>
+            )}
           </div>
         </div>
 
@@ -140,7 +151,12 @@ export default function ActivityItem({
         >
           <span
             className="tnum"
-            style={{ ...type.handle, color: accent, whiteSpace: 'nowrap' }}
+            style={{
+              ...type.handle,
+              color: voided ? ink.muted : accent,
+              whiteSpace: 'nowrap',
+              textDecoration: voided ? 'line-through' : 'none',
+            }}
           >
             {isEarning ? '+ ' : '− '}
             {money(a.amount)}
@@ -245,9 +261,21 @@ export default function ActivityItem({
               )}
             </>
           )}
+          {voided && (
+            <div style={row}>
+              <span style={k}>Deleted</span>
+              <span className="tnum">
+                {a.voidedAt ? new Date(a.voidedAt).toLocaleString() : 'Yes'}
+              </span>
+            </div>
+          )}
           <div style={row}>
             <span style={k}>Status</span>
-            {a.pending ? (
+            {voided ? (
+              <Pill tone="danger" icon={Trash2}>
+                Deleted
+              </Pill>
+            ) : a.pending ? (
               <Pill tone="info" icon={CloudUpload}>
                 Waiting to sync
               </Pill>
@@ -259,9 +287,13 @@ export default function ActivityItem({
           </div>
         
 
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <RecordActions record={editableRecord(a)} data={a} />
-          </div>
+          {/* Nothing left to edit or remove on a deleted record: the one thing a
+              second "delete" could do is erase it, and the history is permanent. */}
+          {!voided && (
+            <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+              <RecordActions record={editableRecord(a)} data={a} />
+            </div>
+          )}
         </div>
       )}
     </div>
