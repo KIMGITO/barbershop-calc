@@ -7,7 +7,7 @@ provider "claims" their record once from their own device (see below).
 ## 1. Set up Supabase
 
 1. Create a project at supabase.com.
-2. Run the three files in `supabase/migrations/` **in order**, either by
+2. Run the files in `supabase/migrations/` **in order**, either by
    pasting each into the SQL editor one at a time, or with the Supabase
    CLI (`supabase link` then `supabase db push` picks them up automatically
    by their numeric prefix):
@@ -291,3 +291,32 @@ One admin per installation, identified by phone number — WhatsApp-style.
 - Providers get a **Record** tab: pick services, amount, note → sent as a *request*. Providers can't write earnings directly.
 - Admin sees them under **Approvals** (badge on the tab and a banner on Home): approve, edit-then-approve, or reject with a reason. Approval creates the real earning, dated when it was recorded, and keeps the original submission for audit.
 - Requires `supabase/migrations/0007_provider_self_recording.sql`.
+
+## Text normalisation (lowercasing)
+
+`supabase/migrations/0009_auto_lowercase.sql` trims and lowercases every text
+value the app writes, so "Mary " and " mary" can no longer both exist and
+name/phone/code lookups always match. It is a single row trigger
+(`tr_auto_lowercase` → `auto_lowercase_text_fields()`) on every table in
+`public`, and an event trigger puts it on tables created later too.
+
+- It works off the row's JSON form, so there is no column list to maintain:
+  string values are trimmed + lowercased, and everything else (numbers,
+  booleans, dates, jsonb, arrays, nulls) is left exactly as it was. Enum-typed
+  columns are skipped, because a lowercased enum label is not a value the type
+  knows.
+- Three columns are deliberately exempt: `device_token` and `local_id` (both
+  are compared byte-for-byte against a copy on the device — see the comments at
+  the top of the migration) and `photo_url` (a URL, where case is meaningful).
+  Add to that list if another such column ever appears.
+- Visible consequences: `role_title` and `mpesa_code` now display lowercased,
+  and a differently-cased value for a constrained column (`method`, `status`,
+  `source`) is accepted instead of rejected. Search is case-insensitive, so
+  finding a code by its M-Pesa casing still works.
+- On Supabase the SQL editor and `db push` connect as `postgres`, which is not
+  guaranteed to be a superuser, and only a superuser may create an event
+  trigger. That last step is wrapped in an exception handler: it warns instead
+  of failing, so the migration still applies and every existing table is still
+  covered. Run that part as a superuser if the warning appears.
+- Idempotent: re-running it drops and re-creates the triggers instead of
+  failing.
